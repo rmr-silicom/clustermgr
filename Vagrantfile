@@ -99,7 +99,10 @@ sudo sed -i '/ExecStart/d' /lib/systemd/system/kubelet.service
 kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
 kubectl apply -f https://raw.githubusercontent.com/intel/multus-cni/master/images/multus-daemonset.yml
 
-sync
+kubectl create deployment --image nginx my-nginx
+kubectl scale deployment --replicas 2 my-nginx
+kubectl expose deployment my-nginx --port=80 --type=LoadBalancer --external-ip=10.0.0.10
+
 sudo systemctl daemon-reload
 sudo systemctl restart kubelet
 
