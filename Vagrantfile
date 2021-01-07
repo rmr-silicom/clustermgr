@@ -83,6 +83,7 @@ sudo kubeadm token create --print-join-command > /vagrant/join.sh
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
+cp $HOME/.kube/config /vagrant/kube-config
 
 # Fix kubelet IP
 cat <<EOF | sudo tee /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
