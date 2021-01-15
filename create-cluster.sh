@@ -13,10 +13,10 @@ init() {
 
 cleanup() {
     state="$(virsh list --all | grep $1 | awk '{ print $3 }')"
-    if [ "${state}" = "running" ]; then
+    if [ "${state}" = "running" ] || [ "${state}" = "shut" ] ; then
         virsh destroy $1
     fi
-    if [ $(virsh list --all | grep -q $1) ]; then
+    if $(virsh list --all | grep -q $1); then
         virsh undefine $1
     fi
 
@@ -59,11 +59,17 @@ install_master() {
                  --nographics
                 #--host-device=pci_8086_10bd
 
+    sleep 2
+    while ! $(virsh list --state-running | grep -q master); do
+        echo "Waiting for master to run"
+        sleep 2
+    done
+
     virsh shutdown master
     while ! $(virsh list --state-shutoff | grep -q master); do
+        virsh shutdown master
         echo "Waiting for master to shutdown"
         sleep 5
-        virsh shutdown master
     done        
 }
 
