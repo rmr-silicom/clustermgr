@@ -1,0 +1,6 @@
+*.img
+firstboot-join.sh
+
+admin.conf
+join.sh
+silicom-ofs-package.sh
