@@ -3,6 +3,8 @@
 #
 set -x
 
+export LIBVIRT_DEFAULT_URI=qemu:///system
+
 out_dir=${1:-$(pwd)}
 
 init() {
@@ -37,7 +39,7 @@ setup_master_img() {
 }
 
 setup_worker_img() {
-    dd if=master.img of=$out_dir/worker$1.img bs=1024M
+    dd if=$out_dir/master.img of=$out_dir/worker$1.img bs=1024M
     # THIS MAKES file root owned.... virt-clone --original master --name worker$1 --auto-clone --file $out_dir/worker$1.img
     virt-sysprep -a $out_dir/worker$1.img --hostname "worker$1" --root-password password:${PASSWD} --selinux-relabel
     virt-customize -a $out_dir/worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts" --root-password password:123456
@@ -60,7 +62,7 @@ install_master() {
                  --import \
                  --noautoconsole \
                  --nographics
-                #--host-device=pci_8086_10bd
+                #--host-device=pci_0000_01_00_0
 
     sleep 2
     while ! $(virsh list --state-running | grep -q master); do
