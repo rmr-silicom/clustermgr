@@ -41,6 +41,11 @@ sed -i '/swap/d' /etc/fstab
 
 dnf clean packages -y
 dnf install -y epel-release
+#
+# This update will ensure the newest kernel will match
+# the newest kernel-devel package on firstboot
+#
+dnf update -y
 dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
 dnf install -y https://download.docker.com/linux/centos/8/x86_64/stable/Packages/containerd.io-1.4.3-3.1.el8.x86_64.rpm
 dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
@@ -49,5 +54,3 @@ dnf install -y docker-ce kubelet kubeadm kubectl tc --disableexcludes=kubernetes
 systemctl enable docker
 systemctl disable firewalld
 systemctl stop firewalld
-
-yes | /root/silicom-ofs-package.sh

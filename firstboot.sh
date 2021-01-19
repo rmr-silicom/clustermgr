@@ -23,6 +23,9 @@ while ! $(docker info > /dev/null 2>&1); do
     sleep 1;    
 done
 
+dnf install -y kernel-devel
+yes | /root/silicom-ofs-package.sh
+
 while ! $(kubeadm init --v=5 > /tmp/kubeadm.log 2>&1); do
     kubeadm reset -f
     logger 'Init failed'

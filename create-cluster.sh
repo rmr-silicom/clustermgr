@@ -2,6 +2,8 @@
 
 set -x
 
+out_dir=${1:-$(pwd)}
+
 init() {
     if [ ! -d ofs-package ] ; then
         git clone --recursive --branch development ssh://rmr@bohr.silicom.dk/var/fiberblaze/Revision/git/Fiberblaze/sw/Intel/ofs-package.git
@@ -20,24 +22,24 @@ cleanup() {
         virsh undefine $1
     fi
 
-    [ -f $1.img ] && rm -f $1.img
+    [ -f $out_dir/$1.img ] && rm -f $out_dir/$1.img
 
     [ -f firstboot-join.sh ] && rm -f firstboot-join.sh
 }
 
 setup_master_img() {
-    virt-builder centos-8.2 -o master.img --root-password password:123456 --selinux-relabel
-    sudo virt-customize -a master.img --hostname "master" --root-password password:123456
-    sudo virt-customize -a master.img --copy-in provision.sh:/root --root-password password:123456
-    sudo virt-customize -a master.img --copy-in silicom-ofs-package.sh:/root --root-password password:123456
-    sudo virt-customize -a master.img --run-command '/root/provision.sh' --root-password password:123456
+    virt-builder centos-8.2 -o $out_dir/master.img --root-password password:123456 --selinux-relabel
+    virt-customize -a $out_dir/master.img --hostname "master" --root-password password:123456
+    virt-customize -a $out_dir/master.img --copy-in provision.sh:/root --root-password password:123456
+    virt-customize -a $out_dir/master.img --copy-in silicom-ofs-package.sh:/root --root-password password:123456
+    virt-customize -a $out_dir/master.img --run-command '/root/provision.sh' --root-password password:123456
 }
 
 setup_worker_img() {
-    virt-clone --original master --name worker$1 --auto-clone --file worker$1.img
-    sudo virt-customize -a worker$1.img --hostname "worker$1" --root-password password:123456
-    sudo virt-customize -a worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts" --root-password password:123456
-    sudo virt-customize -a worker$1.img --run-command "/bin/rm -v /etc/ssh/ssh_host_*" --root-password password:123456
+    virt-clone --original master --name worker$1 --auto-clone --file $out_dir/worker$1.img
+    virt-customize -a $out_dir/worker$1.img --hostname "worker$1" --root-password password:123456
+    virt-customize -a $out_dir/worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts" --root-password password:123456
+    virt-customize -a $out_dir/worker$1.img --run-command "/bin/rm -v /etc/ssh/ssh_host_*" --root-password password:123456
 }
 
 install_master() {
@@ -46,10 +48,10 @@ install_master() {
     # virsh nodedev-list --tree
     # virsh nodedev-list | grep pci
     #
-    sudo virt-install --name master \
+    virt-install --name master \
                  --ram 2048 \
                  --connect qemu:///system \
-                 --disk path=master.img,format=raw \
+                 --disk path=$out_dir/master.img,format=raw \
                  --os-variant auto \
                  --virt-type kvm \
                  --vcpus 4 \
@@ -74,16 +76,16 @@ install_master() {
 }
 
 wait_for_master_startup() {
-    sudo virt-customize -a master.img --firstboot firstboot.sh --root-password password:123456
+    virt-customize -a $out_dir/master.img --firstboot firstboot.sh --root-password password:123456
     virsh start master
 
     while ! $(virt-ls master / | grep -q join.sh); do
         echo "Waiting for master join script."
-        sleep 15;
+        sleep 60;
     done
 
     sync
-    virt-copy-out -a master.img /join.sh .
+    virt-copy-out -a $out_dir/master.img /join.sh .
 
 cat > firstboot-join.sh << EOF
 #!/bin/bash
@@ -102,15 +104,18 @@ while ! \$(docker info > /dev/null 2>&1); do
     sleep 1;    
 done
 
+dnf install -y kernel-devel
+yes | /root/silicom-ofs-package.sh
+
 $(cat join.sh) --v=5
 
 mkdir -p /root/.kube
 cp -i /etc/kubernetes/kubelet.conf /root/.kube/config
     
 EOF
-    sudo virt-customize -a worker1.img --firstboot firstboot-join.sh --root-password password:123456
-    sudo virt-customize -a worker2.img --firstboot firstboot-join.sh --root-password password:123456
-    virt-copy-out -a master.img /etc/kubernetes/admin.conf .
+    virt-customize -a $out_dir/worker1.img --firstboot firstboot-join.sh --root-password password:123456
+    virt-customize -a $out_dir/worker2.img --firstboot firstboot-join.sh --root-password password:123456
+    virt-copy-out -a $out_dir/master.img /etc/kubernetes/admin.conf .
 }
 
 start_worker() {
