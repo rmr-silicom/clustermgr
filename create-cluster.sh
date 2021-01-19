@@ -41,7 +41,7 @@ setup_master_img() {
 setup_worker_img() {
     dd if=$out_dir/master.img of=$out_dir/worker$1.img bs=1024M
     # THIS MAKES file root owned.... virt-clone --original master --name worker$1 --auto-clone --file $out_dir/worker$1.img
-    virt-sysprep -a $out_dir/worker$1.img --hostname "worker$1" --root-password password:${PASSWD} --selinux-relabel
+    virt-sysprep -a $out_dir/worker$1.img --hostname "worker$1" --root-password password:123456 --selinux-relabel
     virt-customize -a $out_dir/worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts" --root-password password:123456
 }
 
@@ -55,7 +55,7 @@ install_master() {
                  --ram 2048 \
                  --connect qemu:///system \
                  --disk path=$out_dir/master.img,format=raw \
-                 --os-variant auto \
+                 --os-variant fedora27 \
                  --virt-type kvm \
                  --vcpus 4 \
                  --accelerate \
@@ -82,7 +82,7 @@ wait_for_master_startup() {
     virt-customize -a $out_dir/master.img --firstboot firstboot.sh --root-password password:123456
     virsh start master
 
-    while ! $(virt-ls master / | grep -q join.sh); do
+    while ! $(LIBGUESTFS_BACKEND=direct virt-ls master / | grep -q join.sh); do
         echo "Waiting for master join script."
         sleep 60;
     done
@@ -126,14 +126,14 @@ start_worker() {
                  --ram 2048 \
                  --connect qemu:///system \
                  --disk path=$out_dir/worker$1.img,format=raw \
-                 --os-variant auto \
+                 --os-variant fedora27 \
                  --virt-type kvm \
                  --vcpus 4 \
                  --accelerate \
                  --import \
                  --noautoconsole \
                  --nographics
-    echo "WORKER$1 MAC: $(virsh dumpxml ${1} | fgrep -i "mac address" | awk -F"'" '{ print $2 }')"
+    echo "WORKER$1 MAC: $(virsh dumpxml worker${1} | fgrep -i "mac address" | awk -F"'" '{ print $2 }')"
 }
 
 cleanup master
