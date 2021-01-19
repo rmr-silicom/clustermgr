@@ -88,7 +88,7 @@ wait_for_master_startup() {
     done
 
     sync
-    virt-copy-out -a $out_dir/master.img /join.sh .
+    LIBGUESTFS_BACKEND=direct virt-copy-out -a $out_dir/master.img /join.sh .
 
 cat > firstboot-join.sh << EOF
 #!/bin/bash
@@ -118,7 +118,7 @@ cp -i /etc/kubernetes/kubelet.conf /root/.kube/config
 EOF
     virt-customize -a $out_dir/worker1.img --firstboot firstboot-join.sh --root-password password:123456
     virt-customize -a $out_dir/worker2.img --firstboot firstboot-join.sh --root-password password:123456
-    virt-copy-out -a $out_dir/master.img /etc/kubernetes/admin.conf .
+    LIBGUESTFS_BACKEND=direct virt-copy-out -a $out_dir/master.img /etc/kubernetes/admin.conf .
 }
 
 start_worker() {
