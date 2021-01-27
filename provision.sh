@@ -34,23 +34,30 @@ cat <<EOF | tee /etc/docker/daemon.json
   "exec-opts": ["native.cgroupdriver=systemd"]
 }
 EOF
-
   
 sed -i --follow-symlinks 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/sysconfig/selinux
 sed -i '/swap/d' /etc/fstab
+swapoff -a
 
 dnf clean packages -y
+
+if [ $(grep -q "8.2.2004" /etc/redhat-release) ] ; then
+  yum install https://vault.centos.org/8.2.2004/BaseOS/x86_64/os/Packages/kernel-headers-4.18.0-193.el8.x86_64.rpm
+else
+  dnf update -y
+fi
+
 dnf install -y epel-release
 #
 # This update will ensure the newest kernel will match
 # the newest kernel-devel package on firstboot
 #
-dnf update -y
 dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
 dnf install -y https://download.docker.com/linux/centos/8/x86_64/stable/Packages/containerd.io-1.4.3-3.1.el8.x86_64.rpm
 dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 dnf install -y pciutils docker-ce kubelet kubeadm kubectl tc --disableexcludes=kubernetes
-
+dnf install -y docker-ce kubelet kubeadm kubectl tc --disableexcludes=kubernetes
+dnf install -y kernel-headers
 systemctl enable docker
 systemctl disable firewalld
 systemctl stop firewalld
