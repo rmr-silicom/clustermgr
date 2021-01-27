@@ -1,24 +1,24 @@
 #!/bin/bash
 # examples: https://igoipy.com/posts/2018/02/cloning-kvm-virtual-machines/
 #
-set -x
+set -xu
 
 export LIBVIRT_DEFAULT_URI=qemu:///system
 
 out_dir=${1:-$(pwd)}
 
 init() {
-    if [ ! -d ofs-package ] ; then
-        git clone --recursive --branch development ssh://rmr@bohr.silicom.dk/var/fiberblaze/Revision/git/Fiberblaze/sw/Intel/ofs-package.git
-        make -C ofs-package
-    fi
+  if [ -d ofs-package ] ; then
+    git clone --recursive --branch development ssh://rmr@bohr.silicom.dk/var/fiberblaze/Revision/git/Fiberblaze/sw/Intel/ofs-package.git
+    make -C ofs-package
+  fi
 
-    [ ! -e silicom-ofs-package.sh ] && cp ofs-package/silicom-ofs-package.sh .
+  [ ! -e silicom-ofs-package.sh ] && cp ofs-package/silicom-ofs-package.sh .
 }
 
 cleanup() {
     state="$(virsh list --all | grep $1 | awk '{ print $3 }')"
-    if [ "${state}" = "running" ] || [ "${state}" = "shut" ] ; then
+    if [ "${state}" = "running" ]; then
         virsh destroy $1
     fi
     if $(virsh list --all | grep -q $1); then
@@ -27,6 +27,7 @@ cleanup() {
 
     [ -f $out_dir/$1.img ] && rm -f $out_dir/$1.img
 
+    [ -f join.sh ] && rm -f join.sh
     [ -f firstboot-join.sh ] && rm -f firstboot-join.sh
 }
 
@@ -37,19 +38,19 @@ setup_master_img() {
         virt-builder centos-8.2 -o $out_dir/master.img --root-password password:123456 --selinux-relabel
     fi
 
-    virt-customize -a master.img --hostname "master"
-    virt-customize -a master.img --copy-in provision.sh:/root
-    virt-customize -a master.img --copy-in silicom-ofs-package.sh:/root
-    virt-customize -a master.img --run-command '/root/provision.sh'
+    chmod a+w $out_dir/master.img
+    virt-customize -a $out_dir/master.img --hostname "master"
+    virt-customize -a $out_dir/master.img --copy-in provision.sh:/root
+    virt-customize -a $out_dir/master.img --copy-in silicom-ofs-package.sh:/root
+    virt-customize -a $out_dir/master.img --run-command '/root/provision.sh' -v
 }
 
 setup_worker_img() {
     dd if=$out_dir/master.img of=$out_dir/worker$1.img bs=1024M
     # THIS MAKES file root owned.... virt-clone --original master --name worker$1 --auto-clone --file $out_dir/worker$1.img
+    virt-customize -a $out_dir/worker$1.img --hostname "worker$1"
     virt-customize -a $out_dir/worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts"
-    virt-customize -a worker$1.img --hostname "worker$1"
-    virt-customize -a worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts"
-    virt-customize -a worker$1.img --run-command "/bin/rm -v /etc/ssh/ssh_host_*"
+    virt-customize -a $out_dir/worker$1.img --run-command "/bin/rm -v /etc/ssh/ssh_host_*"
 }
 
 install_master() {
@@ -61,7 +62,7 @@ install_master() {
     virt-install --name master \
                  --ram 2048 \
                  --connect qemu:///system \
-                 --disk path=$out_dir/master.img,format=raw \
+                 --disk path=$out_dir/master.img,format=raw,readonly=no \
                  --os-variant fedora27 \
                  --virt-type kvm \
                  --vcpus 4 \
@@ -74,14 +75,14 @@ install_master() {
     sleep 2
     while ! $(virsh list --state-running | grep -q master); do
         echo "Waiting for master to run"
-        sleep 2
+        sleep 5
     done
 
     virsh shutdown master
     while ! $(virsh list --state-shutoff | grep -q master); do
         virsh shutdown master
         echo "Waiting for master to shutdown"
-        sleep 5
+        sleep 10
     done        
 }
 
