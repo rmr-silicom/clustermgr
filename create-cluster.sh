@@ -37,19 +37,19 @@ setup_master_img() {
         virt-builder centos-8.2 -o $out_dir/master.img --root-password password:123456 --selinux-relabel
     fi
 
-    virt-customize -a master.img --hostname "master" --root-password password:123456
-    virt-customize -a master.img --copy-in provision.sh:/root --root-password password:123456
-    virt-customize -a master.img --copy-in silicom-ofs-package.sh:/root --root-password password:123456
-    virt-customize -a master.img --run-command '/root/provision.sh' --root-password password:123456
+    virt-customize -a master.img --hostname "master"
+    virt-customize -a master.img --copy-in provision.sh:/root
+    virt-customize -a master.img --copy-in silicom-ofs-package.sh:/root
+    virt-customize -a master.img --run-command '/root/provision.sh'
 }
 
 setup_worker_img() {
     dd if=$out_dir/master.img of=$out_dir/worker$1.img bs=1024M
     # THIS MAKES file root owned.... virt-clone --original master --name worker$1 --auto-clone --file $out_dir/worker$1.img
-    virt-customize -a $out_dir/worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts" --root-password password:123456
-    virt-customize -a worker$1.img --hostname "worker$1" --root-password password:123456
-    virt-customize -a worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts" --root-password password:123456
-    virt-customize -a worker$1.img --run-command "/bin/rm -v /etc/ssh/ssh_host_*" --root-password password:123456
+    virt-customize -a $out_dir/worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts"
+    virt-customize -a worker$1.img --hostname "worker$1"
+    virt-customize -a worker$1.img --run-command "sed -i 's/master/worker$1/g' /etc/hosts"
+    virt-customize -a worker$1.img --run-command "/bin/rm -v /etc/ssh/ssh_host_*"
 }
 
 install_master() {
@@ -86,7 +86,7 @@ install_master() {
 }
 
 wait_for_master_startup() {
-    virt-customize -a $out_dir/master.img --firstboot firstboot.sh --root-password password:123456
+    virt-customize -a $out_dir/master.img --firstboot firstboot.sh
     virsh start master
 
     while ! $(LIBGUESTFS_BACKEND=direct virt-ls master / | grep -q join.sh); do
