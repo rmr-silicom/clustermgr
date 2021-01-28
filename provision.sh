@@ -43,7 +43,7 @@ dnf clean packages -y
 dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 
 if $(grep -q "8.2.2004" /etc/redhat-release); then
-  yum install https://vault.centos.org/8.2.2004/BaseOS/x86_64/os/Packages/kernel-headers-4.18.0-193.el8.x86_64.rpm
+  dnf install -y https://vault.centos.org/8.2.2004/BaseOS/x86_64/os/Packages/kernel-headers-4.18.0-193.el8.x86_64.rpm
 else
   dnf install -y kernel-headers
 fi
