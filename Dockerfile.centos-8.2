@@ -1,0 +1,36 @@
+FROM centos:8.2.2004
+
+RUN dnf group install -y 'Development Tools'
+RUN dnf install -y epel-release
+RUN dnf install -y dnf-plugins-core
+RUN dnf config-manager --set-enabled PowerTools
+RUN dnf install -y \
+    which \
+    git \
+    zsh \
+    sudo \
+    dkms \
+    hmaccalc \
+    zlib-devel \
+    binutils-devel \
+    elfutils-libelf-devel \
+    bc \
+    openssl-devel \
+    cmake \
+    python3-virtualenv \
+    libedit-devel \
+    python3-devel \
+    json-c-devel \
+    libuuid-devel \
+    rpm-build \
+    hwloc-devel \
+    python3-sphinx \
+    doxygen \
+    systemd-rpm-macros \
+    pybind11-devel \
+    tbb-devel \
+    git \
+    python3-pip
+
+RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+RUN dnf install -y https://vault.centos.org/8.2.2004/BaseOS/x86_64/os/Packages/kernel-headers-4.18.0-193.el8.x86_64.rpm

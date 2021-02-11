@@ -1,0 +1,13 @@
+# Where they will be installed, needs libvirt
+host_mach: g9
+
+drivers: /net/bohr/var/fiberblaze/releases/lightningcreek/release_0_0_3/silicom-ofs-package-0.3.sh
+
+host_dir: /disks
+
+os_ver: centos-8.2
+
+# These three paths will need to be relative
+provision: files/provision.sh
+opae_install: files/install-opae.sh
+firstboot: files/firstboot.sh

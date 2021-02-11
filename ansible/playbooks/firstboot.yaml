@@ -1,0 +1,8 @@
+- name: Install {{firstboot}} to {{hostname}}
+  hosts: "{{host_mach}}"
+  vars:
+    img_path: "{{path}}/{{hostname}}.img"
+  tasks:
+    - name: 
+      shell: virt-customize -a {{img_path}} --firstboot {{path}}/{{firstboot|basename}}
+ 

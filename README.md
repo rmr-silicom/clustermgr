@@ -44,7 +44,7 @@ compressed_size=203308980
 expand=/dev/sda3
 EOF
 
-== Start each of the machines
+== Start each of the host_machines
 virsh start master
 virsh start slave1
 virsh start slave2

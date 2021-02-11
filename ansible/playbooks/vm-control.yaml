@@ -1,0 +1,28 @@
+- name: "{{vm_state}} {{hostname}} VM"
+  hosts: "{{host_mach}}"
+  tasks:
+    - name: "{{vm_state}} {{hostname}}"
+      shell: virsh -c qemu:///system {{vm_state}} {{hostname}}
+      ignore_errors: no
+
+- name: Wait for {{hostname}}.silicom.dk to startup
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  tasks:
+    - name: Lookup for {{hostname}}.silicom.dk
+      shell: 'nslookup {{hostname}}.silicom.dk 10.100.0.34'
+      register: result
+      until: result.rc == 0
+      retries: 15
+      delay: 20
+      when: vm_state == 'start'
+
+    - name: "Ping for {{hostname}}.silicom.dk"
+      shell: 'ping -q -c 1 -W 1 {{hostname}}.silicom.dk'
+      register: result
+      until: result.rc == 0
+      retries: 35
+      delay: 30
+      when: vm_state == 'start'
+

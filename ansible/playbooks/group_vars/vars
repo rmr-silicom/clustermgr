@@ -1,0 +1,14 @@
+# Where they will be installed, needs libvirt
+host_mach: g9.silicom.dk
+
+drivers: /net/bohr/var/fiberblaze/releases/lightningcreek/release_0_0_3/silicom-ofs-package-0.3.sh
+
+host_dir: /disks
+
+os_ver: centos-8.2
+
+# These three paths will need to be relative
+files_to_copy:
+    - /home/rmr/kubernetes/kubernetes-operator/ansible/files/provision.sh
+    - /home/rmr/kubernetes/kubernetes-operator/ansible/files/install-opae.sh
+    - /home/rmr/kubernetes/kubernetes-operator/ansible/files/kubeadmin-init.sh

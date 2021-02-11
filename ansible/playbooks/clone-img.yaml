@@ -1,0 +1,8 @@
+- name: Clone clone_in to clone_out
+  hosts: "{{host_mach}}"
+  tasks:
+    - name: dd if={{path}}/{{clone_in}}.img of={{path}}/{{clone_out}}.img bs=1024M
+      shell: dd if={{path}}/{{clone_in}}.img of={{path}}/{{clone_out}}.img bs=1024M
+
+    - name: Sysprep {{clone_out}}
+      shell: virt-sysprep --format raw -a {{path}}/{{clone_out}}.img --hostname {{clone_out}} --root-password password:123456 --selinux-relabel

@@ -1,0 +1,5 @@
+- name: Run {{script}} on {{hostname}}
+  hosts: "{{hostname}}"
+  tasks:
+    - name: Run "{{script}}" on "{{hostname}}"
+      shell: "{{script}}"

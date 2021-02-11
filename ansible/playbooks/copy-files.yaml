@@ -1,0 +1,23 @@
+- name: Copy files to {{host_mach}}
+  hosts: "{{host_mach}}"
+  vars:
+    img_path: "{{path}}/{{hostname|replace('.','-')}}.img"
+  tasks:
+    - name: Copy files
+      copy:
+        src: "{{item}}"
+        dest: "{{path}}/{{item | basename}}"
+        mode: '0777'
+      loop:
+      - "{{provision}}"
+      - "{{drivers}}"
+      - "{{firstboot}}"
+      - "{{opae_install}}"
+
+    - name: Copy files to VM
+      shell: virt-customize -a {{img_path}} --copy-in "{{path}}/{{item|basename}}":/root
+      loop:
+      - "{{provision}}"
+      - "{{drivers}}"
+      - "{{firstboot}}"
+      - "{{opae_install}}"

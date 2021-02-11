@@ -1,0 +1,19 @@
+- name: Get kubeadm creds from {{hostname}}.
+  hosts: "{{hostname}}"
+  tasks:
+    - name: Wait until the file /join.sh is present before continuing
+      wait_for:
+        path: /join.sh
+        timeout: 600
+
+    - name: Store file into ./join.sh
+      fetch:
+        src: /join.sh
+        dest: "{{out_dir}}/join.sh"
+        flat: yes
+
+    - name: Get kubectl certs
+      fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: "{{out_dir}}/admin.conf"
+        flat: yes

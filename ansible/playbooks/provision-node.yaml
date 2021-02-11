@@ -1,0 +1,7 @@
+- name: Provision VM
+  hosts: "{{host_mach}}"
+  vars:
+    img_path: "{{path}}/{{hostname|replace('.','-')}}.img"
+  tasks:
+    - name: Run provision
+      shell: virt-customize --format raw -a {{img_path}} --run-command "/root/provision.sh" -v

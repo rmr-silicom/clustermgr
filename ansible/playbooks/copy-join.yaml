@@ -1,0 +1,8 @@
+- name: Copy kubeadm creds to {{hostname}}.
+  hosts: "{{hostname}}"
+  tasks:
+    - name: Store file into /root/join.sh
+      copy:
+        src: "{{out_dir}}/join.sh"
+        dest: "/root/join.sh"
+        mode: '0777'

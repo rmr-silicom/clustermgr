@@ -1,0 +1,40 @@
+- name: Create KVMs clusters on host
+  hosts: "{{host_mach}}"
+  vars:
+    img_path: "{{path}}/{{hostname|replace('.','-')}}.img"
+  tasks:
+    - name: Get PCI address for lspci -d 1c2c:1000
+      shell: lspci -d 1c2c:1000 | awk '{ print $1 }'
+      register: pci_addr
+      when: host_device is defined
+
+    - name: install {{hostname}} kvm
+      shell: virt-install --name {{hostname}} \
+                 --ram 2048 \
+                 --connect qemu:///system \
+                 --disk path={{img_path}},format=raw,readonly=no \
+                 --os-variant fedora27 \
+                 --virt-type kvm \
+                 --vcpus 4 \
+                 --accelerate \
+                 --import \
+                 --noautoconsole \
+                 --nographics \
+                 --noreboot
+      when: host_device is not defined
+
+    - name: install {{hostname}} kvm with host device {{host_device}}
+      shell: virt-install --name {{hostname}} \
+                 --ram 2048 \
+                 --connect qemu:///system \
+                 --disk path={{img_path}},format=raw,readonly=no \
+                 --os-variant fedora27 \
+                 --virt-type kvm \
+                 --vcpus 4 \
+                 --accelerate \
+                 --import \
+                 --noautoconsole \
+                 --nographics \
+                 --noreboot \
+                 --hostdev {{pci_addr.stdout_lines[0]}}
+      when: host_device is defined

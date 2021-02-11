@@ -1,0 +1,22 @@
+[cluster]
+g9-centos-8-2-master.silicom.dk
+g9-centos-8-2-worker1.silicom.dk
+g9-centos-8-2-worker2.silicom.dk
+
+[cluster:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=123456
+host_key_checking=false
+
+[g9-centos-8-2-master]
+g9-centos-8-2-master.silicom.dk
+
+[g9-centos-8-2-worker1]
+g9-centos-8-2-worker1.silicom.dk
+
+[g9-centos-8-2-worker2]
+g9-centos-8-2-worker2.silicom.dk
+
+[g9]
+g9.silicom.dk ansible_connection=ssh ansible_ssh_user=fb ansible_ssh_pass=fb

@@ -1,5 +1,5 @@
 #!/bin/bash
-# examples: https://igoipy.com/posts/2018/02/cloning-kvm-virtual-machines/
+# examples: https://igoipy.com/posts/2018/02/cloning-kvm-virtual-host_machines/
 #
 set -xu
 
@@ -40,9 +40,11 @@ setup_master_img() {
 
     chmod a+w $out_dir/master.img
     virt-customize -a $out_dir/master.img --hostname "master"
-    virt-customize -a $out_dir/master.img --copy-in provision.sh:/root
-    virt-customize -a $out_dir/master.img --copy-in silicom-ofs-package.sh:/root
+    virt-customize -a $out_dir/master.img --copy-in ${out_dir}/ansible/files/provision.sh:/root
+    virt-customize -a $out_dir/master.img --copy-in ${out_dir}/silicom-ofs-package.sh:/root
+    virt-customize -a $out_dir/master.img --copy-in ${out_dir}/ansible/files/install-opae.sh:/root
     virt-customize -a $out_dir/master.img --run-command '/root/provision.sh' -v
+    # virt-customize -a $out_dir/master.img --run-command '/root/install-opae.sh'
 }
 
 setup_worker_img() {
@@ -87,7 +89,7 @@ install_master() {
 }
 
 wait_for_master_startup() {
-    virt-customize -a $out_dir/master.img --firstboot firstboot.sh
+    virt-customize -a $out_dir/master.img --firstboot ${out_dir}/ansible/files/firstboot.sh
     virsh start master
 
     while ! $(LIBGUESTFS_BACKEND=direct virt-ls master / | grep -q join.sh); do
@@ -98,34 +100,8 @@ wait_for_master_startup() {
     sync
     LIBGUESTFS_BACKEND=direct virt-copy-out -a $out_dir/master.img /join.sh .
 
-cat > firstboot-join.sh << EOF
-#!/bin/bash
-
-set -xe
-
-export HOME=/root
-
-while ! \$(ping -q -c 1 -W 5 8.8.8.8 > /dev/null 2>&1); do
-    logger 'No network'
-    sleep 1;    
-done
-
-while ! \$(docker info > /dev/null 2>&1); do
-    logger 'No docker'
-    sleep 1;    
-done
-
-dnf install -y kernel-devel
-yes | /root/silicom-ofs-package.sh
-
-$(cat join.sh) --v=5
-
-mkdir -p /root/.kube
-cp -i /etc/kubernetes/kubelet.conf /root/.kube/config
-    
-EOF
-    virt-customize -a $out_dir/worker1.img --firstboot firstboot-join.sh --root-password password:123456
-    virt-customize -a $out_dir/worker2.img --firstboot firstboot-join.sh --root-password password:123456
+    virt-customize -a $out_dir/worker1.img --firstboot join.sh --root-password password:123456
+    virt-customize -a $out_dir/worker2.img --firstboot join.sh --root-password password:123456
     LIBGUESTFS_BACKEND=direct virt-copy-out -a $out_dir/master.img /etc/kubernetes/admin.conf .
 }
 

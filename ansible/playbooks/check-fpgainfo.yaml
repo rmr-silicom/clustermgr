@@ -1,0 +1,6 @@
+- name: Check OPAE/DFL drivers on "{{hostname}}"
+  hosts: "{{hostname}}"
+  tasks:
+    - name: Run fpgainfo phy on "{{hostname}}"
+      shell: fpgainfo phy > /dev/null 2>&1
+      register: result

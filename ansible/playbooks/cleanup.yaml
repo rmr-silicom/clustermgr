@@ -1,0 +1,25 @@
+- name: Create KVMs clusters on host
+  hosts: "{{host_mach}}"
+  vars:
+    img_path: "{{path}}/{{hostname|replace('.','-')}}.img"
+  tasks:
+    - name: Gather facts about {{hostname}}
+      shell: virsh -c qemu:///system domstate {{hostname}}
+      ignore_errors: yes
+      register: result
+
+    - name: Destroy {{hostname}}
+      shell: virsh -c qemu:///system destroy {{hostname}}
+      when:
+        - result.rc == 0
+        - result.stdout_lines[0] == 'running'
+
+    - name: Undefine {{hostname}}
+      shell: virsh -c qemu:///system undefine --domain {{hostname}} --nvram
+      when:
+        - result.rc == 0
+
+    - name: Remove {{img_path}}
+      file:
+        path: "{{img_path}}"
+        state: absent
