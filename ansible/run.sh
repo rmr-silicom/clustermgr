@@ -107,6 +107,8 @@ ansible-playbook -i ${base}/inventory \
                  --extra-vars="${common_args} hostname=${master_hostname}" \
                  ${playbooks}/get-join-creds.yaml
 
+cp -v ${playbooks}/admin.conf $HOME/.kube/config
+
 for i in {1..2}
 do
     ansible-playbook -i ${base}/inventory \

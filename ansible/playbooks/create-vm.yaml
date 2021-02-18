@@ -25,7 +25,7 @@
         state: absent
 
     - name: Virt-builder {{img_path}}
-      raw: virt-builder {{os_ver}} -o {{img_path}} --root-password password:123456 --hostname {{hostname}} --selinux-relabel
+      raw: virt-builder {{os_ver}} -o {{img_path}} --size 20G --root-password password:123456 --hostname {{hostname}} --selinux-relabel
 
     - name: Chmod of {{img_path}}
       raw: chmod a+wr {{img_path}}

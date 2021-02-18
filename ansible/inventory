@@ -19,4 +19,9 @@ g9-centos-8-2-worker1.silicom.dk
 g9-centos-8-2-worker2.silicom.dk
 
 [g9]
-g9.silicom.dk ansible_connection=ssh ansible_ssh_user=fb ansible_ssh_pass=fb
+g9.silicom.dk
+
+[g9:vars]
+ansible_connection=ssh
+ansible_ssh_user=fb
+ansible_ssh_pass=fb

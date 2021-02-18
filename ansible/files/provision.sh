@@ -79,13 +79,25 @@ dnf install -y pciutils \
                python3 \
                cri-o \
                podman \
+               wget \
                tc --disableexcludes=kubernetes
 
+
+# https://github.com/vmware-tanzu/sonobuoy
+wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v0.20.0/sonobuoy_0.20.0_linux_amd64.tar.gz
+tar xvf sonobuoy_*.gz -C /usr/local/bin
 
 sed -i 's/Wants=network-online.target/Wants=docker.socket crio.service/g' /usr/lib/systemd/system/kubelet.service
 systemctl daemon-reload
 
 mkdir -p /etc/crio/crio.conf.d
+mkdir -p /etc/systemd/system/kubelet.service.d
+
+cat << EOF | tee /etc/systemd/system/kubelet.service.d/11-cgroups.conf
+[Service]
+CPUAccounting=true
+MemoryAccounting=true
+EOF
 
 cat <<EOF | tee /etc/crio/crio.conf.d/01-log-level.conf
 [crio.runtime]
@@ -120,5 +132,6 @@ registries = ['docker.silicom.dk:5000']
 registries = []
 EOF
 
+systemctl daemon-reload
 systemctl enable cri-o
 systemctl start cri-o
