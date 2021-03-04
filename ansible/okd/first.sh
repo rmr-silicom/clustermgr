@@ -11,17 +11,19 @@ BASE=$(dirname $(realpath "${BASH_SOURCE[0]}"))
 WEB_PORT=8080
 HOST_IP=$(ip a | grep -m 1 10.100 | awk '{print $2}' | sed 's/\/.*//')
 ignition_url=http://${HOST_IP}:${WEB_PORT}
-cluster_name="silicom-openshift"
-BASE_DOM="local"
+export cluster_name="openshift"
+export BASE_DOM="silicom.local"
 VCPUS="2"
-RAM_MB="4096"
-BOOTSTRAP_RAM_MB="12000"
+RAM_MB="8192"
+BOOTSTRAP_RAM_MB="8192"
 DISK_GB="10"
 install_dir=$BASE/install_dir
 IGNITION_CONFIG="/var/lib/libvirt/ignition/fcos-config.ign"
 fedora_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/33.20210201.3.0/x86_64/fedora-coreos-33.20210201.3.0"
 image_url=${fedora_base}-metal.x86_64.raw.xz
 rootfs_url=${fedora_base}-live-rootfs.x86_64.img
+VMS="3"
+
 #podman run --pull=always -i --rm -v $BASE:/data -w /data  \
 #            quay.io/coreos/coreos-installer:release download -s stable -p qemu -f qcow2.xz --decompress
 
@@ -69,24 +71,17 @@ docker run -d --name static-file-server --rm  -v ${install_dir}:/web -p ${WEB_PO
 sleep 1
 curl ${HOST_IP}:8080/master.ign -s > /dev/null
 
-for i in {0..5} ; do
+while $(virsh list --state-running | grep -q running); do
+  virsh destroy $(virsh list --state-running --name | head -n1)
+done
 
-    if [ $i -eq 0 ] ; then
-      hostname="bootstrap"
-    elif [ $i -lt 3 ] ; then
-      hostname="master-${i}"
-    else
-      hostname="worker-${i}"
-    fi
+while [ ! -z "$(virsh list --all --name)" ] ; do
+  virsh undefine $(virsh list --all --name | head -n1) --remove-all-storage
+done
 
-    if $(virsh list --all | grep $hostname | grep -q running); then
-        virsh destroy $hostname
-    fi
-    if $(virsh list --all | grep -q $hostname); then
-        virsh undefine $hostname --remove-all-storage
-    fi
-
-    [ -e ${BASE}/$hostname.raw ] && rm -f ${BASE}/$hostname.raw
+while [ ! -z "$(ls ${BASE}/*.raw)" ] ; do
+  rm -f $(ls ${BASE}/*.raw | head -n1)
+  sleep 2
 done
 
 if $(virsh net-list | grep -q default); then
@@ -97,7 +92,7 @@ fi
 virsh net-define --file ${BASE}/../files/default.xml
 virsh net-start default
 
-for i in {0..3} ; do
+for i in $(seq 0 $VMS) ; do
 
     RAM=$RAM_MB
 
@@ -105,7 +100,7 @@ for i in {0..3} ; do
       ignition_file=bootstrap.ign
       hostname="bootstrap"
       RAM=$BOOTSTRAP_RAM_MB
-    elif [ $i -lt 3 ] ; then
+    elif [ $i -lt 4 ] ; then
       ignition_file=master.ign
       hostname="master-${i}"
     else
@@ -126,10 +121,10 @@ done
 
 sleep 10;
 
-for i in {0..3} ; do
+for i in $(seq 0 $VMS) ; do
     if [ $i -eq 0 ] ; then
       hostname="bootstrap"
-    elif [ $i -lt 3 ] ; then
+    elif [ $i -lt 4 ] ; then
       hostname="master-${i}"
     else
       hostname="worker-${i}"
@@ -139,11 +134,11 @@ for i in {0..3} ; do
     ip=$(virsh domifaddr ${hostname} | grep ipv4 | head -n1 | awk '{print $4}' | cut -d'/' -f1 2> /dev/null)
 
     if [ $hostname = 'bootstrap' ] ; then
-      virsh net-update default add-last ip-dhcp-host --xml "<host mac='$mac' name='api-int.silicom-openshift.local' ip='$ip'/>" --live --config
-      virsh net-update default add-last dns-host --xml "<host ip='$ip'><hostname>api-int.silicom-openshift.local</hostname></host>" --live --config
+      virsh net-update default add-last ip-dhcp-host --xml "<host mac='$mac' name='api-int.${cluster_name}.${BASE_DOM}' ip='$ip'/>" --live --config
+      virsh net-update default add-last dns-host --xml "<host ip='$ip'><hostname>api-int.${cluster_name}.${BASE_DOM}</hostname><hostname>bootstrap.${cluster_name}.${BASE_DOM}</hostname><hostname>api.${cluster_name}.${BASE_DOM}</hostname></host>" --live --config
     else
       virsh net-update default add-last ip-dhcp-host --xml "<host mac='$mac' name='$hostname' ip='$ip'/>" --live --config
-      virsh net-update default add-last dns-host --xml "<host ip='$ip'><hostname>$hostname.local</hostname></host>" --live --config
+      virsh net-update default add-last dns-host --xml "<host ip='$ip'><hostname>$hostname.${cluster_name}.${BASE_DOM}</hostname></host>" --live --config
     fi
 done
 
@@ -152,10 +147,10 @@ while $(virsh list --all | grep -q running); do
   sleep 20;
 done
 
-for i in {0..3} ; do
+for i in $(seq 0 $VMS) ; do
     if [ $i -eq 0 ] ; then
       hostname="bootstrap"
-    elif [ $i -lt 3 ] ; then
+    elif [ $i -lt 4 ] ; then
       hostname="master-${i}"
     else
       hostname="worker-${i}"
@@ -164,4 +159,8 @@ for i in {0..3} ; do
     virsh start $hostname
 done
 
-sleep 5
+sleep 30
+
+./bin/openshift-install --dir=install_dir wait-for bootstrap-complete
+
+./bin/openshift-install --dir=install_dir wait-for install-complete
