@@ -14,17 +14,17 @@ passwd:
 
 systemd:
   units:
-    - name: hello.service
-      enabled: true
-      contents: |
-        [Unit]
-        Description=A hello world unit!
-        [Service]
-        Type=oneshot
-        RemainAfterExit=yes
-        ExecStart=/usr/bin/echo "Hello, World!"
-        [Install]
-        WantedBy=multi-user.target
+  - name: hello.service
+    enabled: true
+    contents: |
+      [Unit]
+      Description=A hello world unit!
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/bin/echo "Hello, World!"
+      [Install]
+      WantedBy=multi-user.target
 
   - name: haproxy.service
     enabled: true

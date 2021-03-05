@@ -8,6 +8,7 @@
     <host ip='192.168.122.9'>
       <hostname>api-int.openshift.silicom.local</hostname>
       <hostname>api.openshift.silicom.local</hostname>
+      <hostname>lb.silicom.local</hostname>
     </host>
     <host ip='192.168.122.2'>
       <hostname>bootstrap.openshift.silicom.local</hostname>
@@ -29,9 +30,6 @@
     </host>
     <host ip='192.168.122.8'>
       <hostname>worker-3.openshift.silicom.local</hostname>
-    </host>
-    <host ip='192.168.122.9'>
-      <hostname>lb.openshift.silicom.local</hostname>
     </host>
   </dns>
   <ip address='192.168.122.1' netmask='255.255.255.0'>

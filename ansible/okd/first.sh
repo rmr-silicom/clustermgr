@@ -29,6 +29,7 @@ rootfs_url=${fedora_base}-live-rootfs.x86_64.img
 WORKERS="0"
 MASTERS="3"
 IMAGE="$BASE/fedora-coreos-${fcos_ver}-live.x86_64.iso"
+INSTALLER=$BASE/bin/openshift-install
 
 start_fileserver() {
   if $(docker ps | grep "static-file-server" > /dev/null 2>&1) ; then
