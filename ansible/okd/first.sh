@@ -4,6 +4,11 @@
 # https://kxr.me/2019/08/17/openshift-4-upi-install-libvirt-kvm/
 #
 
+
+#
+# https://getfedora.org/en/coreos/download?tab=metal_virtualized&stream=stable
+#
+
 set -xe
 
 BASE=$(dirname $(realpath "${BASH_SOURCE[0]}"))
@@ -17,14 +22,13 @@ VCPUS="2"
 RAM_MB="8192"
 DISK_GB="10"
 install_dir=$BASE/install_dir
-fedora_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/33.20210201.3.0/x86_64/fedora-coreos-33.20210201.3.0"
+fcos_ver="33.20210217.3.0"
+fedora_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}"
 image_url=${fedora_base}-metal.x86_64.raw.xz
 rootfs_url=${fedora_base}-live-rootfs.x86_64.img
 WORKERS="0"
 MASTERS="3"
-IMAGE="$BASE/fedora-coreos-33.20210201.3.0-live.x86_64.iso"
-
-podman run --pull=always -i --rm quay.io/coreos/fcct -p -s <$BASE/fcos-config.fcc > $BASE/fcos-config.ign
+IMAGE="$BASE/fedora-coreos-${fcos_ver}-live.x86_64.iso"
 
 start_fileserver() {
   if $(docker ps | grep "static-file-server" > /dev/null 2>&1) ; then
@@ -42,8 +46,10 @@ cleanup() {
 #              quay.io/coreos/coreos-installer:release download -s stable -p qemu -f qcow2.xz --decompress
 
   if [ ! -e $IMAGE ] ; then
-    podman run --privileged --pull=always --rm -v $BASE:/data -w /data \
-        quay.io/coreos/coreos-installer:release download -s stable -p metal -f iso
+#    podman run --privileged --pull=always --rm -v $BASE:/data -w /data \
+#        quay.io/coreos/coreos-installer:release download -s stable -p metal -f iso
+
+    wget https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}-live.x86_64.iso -O ${IMAGE}
   fi
 
   [ ! -e $BASE/bin ] && mkdir -p $BASE/bin
@@ -51,7 +57,7 @@ cleanup() {
   if [ ! -e $BASE/bin/openshift-install ] ; then
     wget https://github.com/openshift/okd/releases/download/4.6.0-0.okd-2021-02-14-205305/openshift-install-linux-4.6.0-0.okd-2021-02-14-205305.tar.gz
     tar xvf openshift-install-linux-4.6.0-0.okd-2021-02-14-205305.tar.gz -C $BASE/bin/
-    chmod +x bin/openshift-install
+    chmod +x  $BASE/bin/openshift-install
   fi
 
   [ -e ${install_dir} ] && rm -rf ${install_dir}
@@ -106,6 +112,8 @@ EOF
 
   virsh net-define --file ${BASE}/../files/default.xml
   virsh net-start default
+
+  podman run --pull=always -i --rm quay.io/coreos/fcct -p -s <$BASE/../files/lb.fcc > ${install_dir}/lb.ign
 }
 
 create_vm() {
@@ -116,29 +124,16 @@ create_vm() {
 
   virt-install --connect="qemu:///system" --name="${1}" --vcpus="${VCPUS}" --memory="${2}" \
           --virt-type kvm --accelerate \
+          --network network=default,mac="$(virsh net-dumpxml default | grep $hostname | grep mac | sed "s/ name=.*//g" | sed -n "s/.*mac='\(.*\)'/\1/p")" \
           --graphics=none  --noautoconsole --noreboot \
           --disk=${BASE}/${hostname}.raw \
           --location=${IMAGE} \
           --extra-args "nomodeset rd.neednet=1 coreos.inst=yes ignition.platform.id=${1} console=ttyS0 coreos.inst.install_dev=/dev/sda coreos.inst=yes coreos.live.rootfs_url=${rootfs_url} coreos.inst.ignition_url=${ignition_url}/${3} coreos.inst.image_url=${image_url}"
 }
 
-add_dns() {
-  local hostname=$1
-  mac=$(virsh domifaddr ${hostname} | grep ipv4 | head -n1 | awk '{print $2}')
-  ip=$(virsh domifaddr ${hostname} | grep ipv4 | head -n1 | awk '{print $4}' | cut -d'/' -f1 2> /dev/null)
-
-  if [ $hostname = 'bootstrap' ] ; then
-    virsh net-update default add-last ip-dhcp-host --xml "<host mac='$mac' name='api-int.${cluster_name}.${BASE_DOM}' ip='$ip'/>" --live --config
-    virsh net-update default add-last dns-host --xml "<host ip='$ip'><hostname>api-int.${cluster_name}.${BASE_DOM}</hostname><hostname>bootstrap.${cluster_name}.${BASE_DOM}</hostname><hostname>api.${cluster_name}.${BASE_DOM}</hostname></host>" --live --config
-  else
-    virsh net-update default add-last ip-dhcp-host --xml "<host mac='$mac' name='$hostname' ip='$ip'/>" --live --config
-    virsh net-update default add-last dns-host --xml "<host ip='$ip'><hostname>$hostname.${cluster_name}.${BASE_DOM}</hostname></host>" --live --config
-  fi
-}
-
 cleanup
 start_fileserver
-
+create_vm "lb" "4096" "lb.ign"
 create_vm "bootstrap" "8192" "bootstrap.ign"
 
 for i in $(seq 1 $MASTERS) ; do
@@ -151,20 +146,13 @@ done
 
 sleep 15
 
-add_dns "bootstrap"
-for i in $(seq 1 $MASTERS) ; do
-    add_dns "master-$i"
-done
-for i in $(seq 1 $WORKERS) ; do
-    add_dns "worker-$i"
-done
-
 while [ ! -z "$(virsh list --state-running --name)" ] ; do
   echo "waiting"
   sleep 20;
 done
 
 virsh start "bootstrap"
+virsh start "lb"
 
 for i in $(seq 1 $MASTERS) ; do
     virsh start "master-$i"
@@ -176,6 +164,6 @@ done
 
 sleep 30
 
-./bin/openshift-install --dir=install_dir wait-for bootstrap-complete
+./bin/openshift-install --dir=install_dir wait-for bootstrap-complete --log-level debug
 
-./bin/openshift-install --dir=install_dir wait-for install-complete
+./bin/openshift-install --dir=install_dir wait-for install-complete --log-level debug

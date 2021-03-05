@@ -4,9 +4,47 @@
   <forward mode='nat'/>
   <bridge name='virbr0' stp='on' delay='0'/>
   <mac address='52:54:00:0a:cd:21'/>
+  <dns>
+    <host ip='192.168.122.9'>
+      <hostname>api-int.openshift.silicom.local</hostname>
+      <hostname>api.openshift.silicom.local</hostname>
+    </host>
+    <host ip='192.168.122.2'>
+      <hostname>bootstrap.openshift.silicom.local</hostname>
+    </host>
+    <host ip='192.168.122.3'>
+      <hostname>master-1.openshift.silicom.local</hostname>
+    </host>
+    <host ip='192.168.122.4'>
+      <hostname>master-2.openshift.silicom.local</hostname>
+    </host>
+    <host ip='192.168.122.5'>
+      <hostname>master-3.openshift.silicom.local</hostname>
+    </host>
+    <host ip='192.168.122.6'>
+      <hostname>worker-1.openshift.silicom.local</hostname>
+    </host>
+    <host ip='192.168.122.7'>
+      <hostname>worker-2.openshift.silicom.local</hostname>
+    </host>
+    <host ip='192.168.122.8'>
+      <hostname>worker-3.openshift.silicom.local</hostname>
+    </host>
+    <host ip='192.168.122.9'>
+      <hostname>lb.openshift.silicom.local</hostname>
+    </host>
+  </dns>
   <ip address='192.168.122.1' netmask='255.255.255.0'>
     <dhcp>
       <range start='192.168.122.2' end='192.168.122.254'/>
+      <host mac='52:54:00:4e:8c:84' name='bootstrap' ip='192.168.122.2'/>
+      <host mac='52:54:00:d9:ba:fe' name='master-1' ip='192.168.122.3'/>
+      <host mac='52:54:00:05:e6:53' name='master-2' ip='192.168.122.4'/>
+      <host mac='52:54:00:71:fc:54' name='master-3' ip='192.168.122.5'/>
+      <host mac='52:54:00:01:e2:a5' name='worker-1' ip='192.168.122.6'/>
+      <host mac='52:54:00:26:07:ff' name='worker-2' ip='192.168.122.7'/>
+      <host mac='52:54:00:7b:76:6e' name='worker-3' ip='192.168.122.8'/>
+      <host mac='52:54:00:7b:76:6f' name='lb' ip='192.168.122.9'/>
     </dhcp>
   </ip>
 </network>
