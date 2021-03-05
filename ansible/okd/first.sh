@@ -29,7 +29,16 @@ rootfs_url=${fedora_base}-live-rootfs.x86_64.img
 WORKERS="0"
 MASTERS="3"
 IMAGE="$BASE/fedora-coreos-${fcos_ver}-live.x86_64.iso"
+
 INSTALLER=$BASE/bin/openshift-install
+if [ -e /usr/local/bin/openshift-install ] ; then
+  INSTALLER=/usr/local/bin/openshift-install
+fi
+
+OC=$BASE/bin/oc
+if [ -e /usr/local/bin/oc ] ; then
+  OC=/usr/local/bin/oc
+fi
 
 start_fileserver() {
   if $(docker ps | grep "static-file-server" > /dev/null 2>&1) ; then
@@ -59,6 +68,12 @@ cleanup() {
     wget https://github.com/openshift/okd/releases/download/4.6.0-0.okd-2021-02-14-205305/openshift-install-linux-4.6.0-0.okd-2021-02-14-205305.tar.gz
     tar xvf openshift-install-linux-4.6.0-0.okd-2021-02-14-205305.tar.gz -C $BASE/bin/
     chmod +x  $BASE/bin/openshift-install
+  fi
+
+  if [ ! -e $BASE/bin/oc ] ; then
+    wget https://github.com/openshift/okd/releases/download/4.6.0-0.okd-2021-01-23-132511/openshift-client-linux-4.6.0-0.okd-2021-01-23-132511.tar.gz
+    tar xvf openshift-client-linux-4.6.0-0.okd-2021-01-23-132511.tar.gz -C $BASE/bin/
+    chmod +x  $BASE/bin/oc
   fi
 
   [ -e ${install_dir} ] && rm -rf ${install_dir}
@@ -91,7 +106,7 @@ sshKey: '$(cat ${BASE}/node.pub)'
 EOF
 
   # openshift-install create manifests --dir=install
-  $BASE/bin/openshift-install create ignition-configs --dir=${install_dir}
+  $INSTALLER create ignition-configs --dir=${install_dir}
 
   while $(virsh list --state-running | grep -q running); do
     virsh destroy $(virsh list --state-running --name | head -n1)
@@ -165,6 +180,13 @@ done
 
 sleep 30
 
-./bin/openshift-install --dir=install_dir wait-for bootstrap-complete --log-level debug
+KUBECONFIG=$(pwd)/auth/kubeconfig
 
-./bin/openshift-install --dir=install_dir wait-for install-complete --log-level debug
+$INSTALLER --dir=install_dir wait-for bootstrap-complete --log-level debug
+
+virsh destroy bootstrap
+virsh undefine bootstrap --remove-all-storage
+
+$OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' | xargs --no-run-if-empty $OC adm certificate approve
+
+$INSTALLER --dir=install_dir wait-for install-complete --log-level debug
