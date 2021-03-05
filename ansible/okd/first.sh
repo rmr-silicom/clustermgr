@@ -106,7 +106,7 @@ pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"b3BlbnNoaWZ0LXJlbGVhc2UtZG
 sshKey: '$(cat ${BASE}/node.pub)'
 EOF
 
-  # openshift-install create manifests --dir=install
+  $INSTALLER create manifests --dir=${install_dir}
   $INSTALLER create ignition-configs --dir=${install_dir}
 
   while $(virsh list --state-running | grep -q running); do
