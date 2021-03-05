@@ -17,8 +17,8 @@ WEB_PORT=8080
 HOST_IP=$(ip a | grep -m 1 10.100 | awk '{print $2}' | sed 's/\/.*//')
 ignition_url=http://${HOST_IP}:${WEB_PORT}
 cluster_name="openshift"
-BASE_DOM="silicom.local"
-VCPUS="2"
+base_domain="local"
+VCPUS="4"
 RAM_MB="8192"
 DISK_GB="10"
 install_dir=$BASE/install_dir
@@ -81,7 +81,7 @@ cleanup() {
 
 cat <<EOF > ${install_dir}/install-config.yaml
 apiVersion: v1
-baseDomain: ${BASE_DOM}
+baseDomain: ${base_domain}
 compute:
 - hyperthreading: Disabled
   name: worker
