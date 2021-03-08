@@ -131,19 +131,19 @@ EOF
 }
 
 create_vm() {
-
   local hostname=$1
-  qemu-img create -f raw ${BASE}/${1}.raw ${DISK_GB}G
-  chmod a+wr ${1}.raw
+  local disk=${BASE}/${hostname}
 
+  qemu-img create -f raw ${disk}.raw ${DISK_GB}G
+  chmod a+wr ${disk}.raw
   virt-install --connect="qemu:///system" --name="${1}" --vcpus="${VCPUS}" --memory="${2}" \
           --virt-type kvm --accelerate \
           --os-variant rhl9 \
           --network network=default,mac="$(virsh net-dumpxml default | grep $hostname | grep mac | sed "s/ name=.*//g" | sed -n "s/.*mac='\(.*\)'/\1/p")" \
           --graphics=none  --noautoconsole --noreboot \
-          --disk=${BASE}/${hostname}.raw \
+          --disk=${disk}.raw \
           --location=${IMAGE} \
-          --extra-args "nomodeset rd.neednet=1 coreos.inst=yes ignition.platform.id=${1} console=ttyS0 coreos.inst.install_dev=/dev/sda coreos.inst=yes coreos.live.rootfs_url=${rootfs_url} coreos.inst.ignition_url=${ignition_url}/${3} coreos.inst.image_url=${image_url}"
+          --extra-args "nomodeset rd.neednet=1 coreos.inst=yes console=ttyS0 coreos.inst.install_dev=/dev/sda coreos.live.rootfs_url=${rootfs_url} coreos.inst.ignition_url=${ignition_url}/${3} coreos.inst.image_url=${image_url}"
 }
 
 cleanup
@@ -159,23 +159,20 @@ for i in $(seq 1 $WORKERS) ; do
     create_vm "worker$i" "${RAM_MB}" "worker.ign"
 done
 
-sleep 15
-
 while [ ! -z "$(virsh list --state-running --name)" ] ; do
   echo "waiting"
   sleep 20;
 done
 
-virsh start "bootstrap"
 virsh start "lb"
-
-while ! $(ping -c 1 -q -W 1 bootstrap.openshift.local > /dev/null 2>&1); do
-  echo "Waiting for bootstrap"
-  sleep 5
+while ! $(nc -v -z -w 1 lb.openshift.local 22 > /dev/null 2>&1); do
+  echo "Waiting for lb"
+  sleep 30
 done
 
-while ! $(ping -c 1 -q -W 1 lb.openshift.local > /dev/null 2>&1); do
-  echo "Waiting for lb"
+virsh start "bootstrap"
+while ! $(nc -v -z -w 1 lb.openshift.local 6443 > /dev/null 2>&1); do
+  echo "Waiting for bootstrap"
   sleep 5
 done
 
@@ -187,15 +184,34 @@ for i in $(seq 1 $WORKERS) ; do
     virsh start "worker$i"
 done
 
-sleep 30
+while ! $(nc -v -z -w 1 master$MASTERS.openshift.local 22 > /dev/null 2>&1); do
+  echo "Waiting for master$MASTERS"
+  sleep 30
+done
+date
 
 cp install_dir/auth/kubeconfig install_dir/auth/kubeconfig.orig
-KUBECONFIG=$(pwd)/auth/kubeconfig
+export KUBECONFIG=$(pwd)/auth/kubeconfig
 
-while ! $(ssh -i node  -o StrictHostKeyChecking=no -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "stat /opt/openshift/.bootkube.done") ; do
-  echo -n $(ssh -i node  -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "ls /opt/openshift/*.done")
-  sleep 15
+while ! $(ssh -i node  -o LogLevel=ERROR -o StrictHostKeyChecking=no -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "[ -e /opt/openshift/cco-bootstrap.done ]") ; do
+  echo -n "Waiting for cco-bootstrap.done"
+  sleep 30
 done
+date
+
+$INSTALLER --dir=install_dir wait-for bootstrap-complete --log-level debug
+
+while ! $(ssh -i node  -o LogLevel=ERROR -o StrictHostKeyChecking=no -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "[ -e /opt/openshift/cb-bootstrap.done ]") ; do
+  echo -n "Waiting for cb-bootstrap.done"
+  sleep 30
+done
+date
+
+while ! $(ssh -i node  -o LogLevel=ERROR -o StrictHostKeyChecking=no -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "[ -e /opt/openshift/.bootkube.done ]") ; do
+  echo -n "Waiting for .bootkube.done"
+  sleep 30
+done
+date
 
 echo -n "====> Removing Bootstrap from haproxy: "
 ssh -i sshkey lb."${cluster_name}.${base_domain}" "sed -i '/bootstrap\.${cluster_name}\.${base_domain}/d' /etc/haproxy/haproxy.cfg"
@@ -212,3 +228,5 @@ virsh undefine bootstrap --remove-all-storage
 $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' | xargs --no-run-if-empty $OC adm certificate approve
 
 $INSTALLER --dir=install_dir wait-for install-complete --log-level debug
+
+KUBECONFIG=install_dir/auth/kubeconfig ./bin/oc create -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-daemonset-combined.yaml.template -v=8
