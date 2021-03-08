@@ -4,3 +4,8 @@ firstboot-join.sh
 admin.conf
 join.sh
 silicom-ofs-package.sh
+
+*.raw*
+*.tar.gz*
+*.iso*
+openshift-install

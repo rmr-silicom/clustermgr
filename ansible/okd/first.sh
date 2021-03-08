@@ -18,9 +18,9 @@ HOST_IP=$(ip a | grep -m 1 10.100 | awk '{print $2}' | sed 's/\/.*//')
 ignition_url=http://${HOST_IP}:${WEB_PORT}
 cluster_name="openshift"
 base_domain="local"
-VCPUS="4"
-RAM_MB="8192"
-DISK_GB="10"
+VCPUS="8"
+RAM_MB="16000"
+DISK_GB="30"
 install_dir=$BASE/install_dir
 fcos_ver="33.20210217.3.0"
 fedora_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}"
@@ -31,14 +31,7 @@ MASTERS="3"
 IMAGE="$BASE/fedora-coreos-${fcos_ver}-live.x86_64.iso"
 
 INSTALLER=$BASE/bin/openshift-install
-if [ -e /usr/local/bin/openshift-install ] ; then
-  INSTALLER=/usr/local/bin/openshift-install
-fi
-
 OC=$BASE/bin/oc
-if [ -e /usr/local/bin/oc ] ; then
-  OC=/usr/local/bin/oc
-fi
 
 start_fileserver() {
   if $(docker ps | grep "static-file-server" > /dev/null 2>&1) ; then
@@ -74,6 +67,10 @@ cleanup() {
     wget https://github.com/openshift/okd/releases/download/4.6.0-0.okd-2021-01-23-132511/openshift-client-linux-4.6.0-0.okd-2021-01-23-132511.tar.gz
     tar xvf openshift-client-linux-4.6.0-0.okd-2021-01-23-132511.tar.gz -C $BASE/bin/
     chmod +x  $BASE/bin/oc
+  fi
+
+  if [ -e .openshift_install.log ] ; then
+    rm .openshift_install*
   fi
 
   [ -e ${install_dir} ] && rm -rf ${install_dir}
@@ -141,6 +138,7 @@ create_vm() {
 
   virt-install --connect="qemu:///system" --name="${1}" --vcpus="${VCPUS}" --memory="${2}" \
           --virt-type kvm --accelerate \
+          --os-variant rhl9 \
           --network network=default,mac="$(virsh net-dumpxml default | grep $hostname | grep mac | sed "s/ name=.*//g" | sed -n "s/.*mac='\(.*\)'/\1/p")" \
           --graphics=none  --noautoconsole --noreboot \
           --disk=${BASE}/${hostname}.raw \
@@ -171,6 +169,16 @@ done
 virsh start "bootstrap"
 virsh start "lb"
 
+while ! $(ping -c 1 -q -W 1 bootstrap.openshift.local > /dev/null 2>&1); do
+  echo "Waiting for bootstrap"
+  sleep 5
+done
+
+while ! $(ping -c 1 -q -W 1 lb.openshift.local > /dev/null 2>&1); do
+  echo "Waiting for lb"
+  sleep 5
+done
+
 for i in $(seq 1 $MASTERS) ; do
     virsh start "master$i"
 done
@@ -181,10 +189,22 @@ done
 
 sleep 30
 
+cp install_dir/auth/kubeconfig install_dir/auth/kubeconfig.orig
 KUBECONFIG=$(pwd)/auth/kubeconfig
+
+while ! $(ssh -i node  -o StrictHostKeyChecking=no -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "stat /opt/openshift/.bootkube.done") ; do
+  echo -n $(ssh -i node  -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "ls /opt/openshift/*.done")
+  sleep 15
+done
+
+echo -n "====> Removing Bootstrap from haproxy: "
+ssh -i sshkey lb."${cluster_name}.${base_domain}" "sed -i '/bootstrap\.${cluster_name}\.${base_domain}/d' /etc/haproxy/haproxy.cfg"
+ssh -i sshkey lb."${cluster_name}.${base_domain}" "sudo podman restart haproxy"
 
 date
 $INSTALLER --dir=install_dir wait-for bootstrap-complete --log-level debug
+
+remove_bootstrap
 
 virsh destroy bootstrap
 virsh undefine bootstrap --remove-all-storage
