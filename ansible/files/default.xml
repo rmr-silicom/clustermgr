@@ -10,6 +10,8 @@
       <hostname>api.openshift.local</hostname>
       <hostname>lb.openshift.local</hostname>
       <hostname>*.apps.openshift.local</hostname>
+      <hostname>console-openshift-console.apps.openshift.local</hostname>
+      <hostname>oauth-openshift.apps.openshift.local</hostname>
     </host>
     <host ip='192.168.122.2'>
       <hostname>bootstrap.openshift.local</hostname>

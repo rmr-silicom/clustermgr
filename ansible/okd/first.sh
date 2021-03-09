@@ -27,9 +27,10 @@ fcos_ver="33.20210217.3.0"
 fedora_base="${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}"
 image_url=${fedora_base}-metal.x86_64.raw.xz
 rootfs_url=${fedora_base}-live-rootfs.x86_64.img
-WORKERS="0"
+WORKERS="1"
 MASTERS="3"
 IMAGE="$BASE/fedora-coreos-${fcos_ver}-live.x86_64.iso"
+ssh_opts="-i node -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 INSTALLER=$BASE/bin/openshift-install
 OC=$BASE/bin/oc
@@ -201,7 +202,7 @@ date
 cp install_dir/auth/kubeconfig install_dir/auth/kubeconfig.orig
 export KUBECONFIG=$(pwd)/auth/kubeconfig
 
-while ! $(ssh -i node  -o LogLevel=ERROR -o StrictHostKeyChecking=no -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "[ -e /opt/openshift/cco-bootstrap.done ]") ; do
+while ! $(ssh ${ssh_opts} core@bootstrap.${cluster_name}.${base_domain} "[ -e /opt/openshift/cco-bootstrap.done ]") ; do
   echo -n "Waiting for cco-bootstrap.done"
   sleep 30
 done
@@ -209,26 +210,21 @@ date
 
 $INSTALLER --dir=install_dir wait-for bootstrap-complete --log-level debug
 
-while ! $(ssh -i node  -o LogLevel=ERROR -o StrictHostKeyChecking=no -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "[ -e /opt/openshift/cb-bootstrap.done ]") ; do
+while ! $(ssh ${ssh_opts} core@bootstrap.${cluster_name}.${base_domain} "[ -e /opt/openshift/cb-bootstrap.done ]") ; do
   echo -n "Waiting for cb-bootstrap.done"
   sleep 30
 done
 date
 
-while ! $(ssh -i node  -o LogLevel=ERROR -o StrictHostKeyChecking=no -o "UserKnownHostsFile=/dev/null" "core@bootstrap.${cluster_name}.${base_domain}" "[ -e /opt/openshift/.bootkube.done ]") ; do
+while ! $(ssh ${ssh_opts} core@bootstrap.${cluster_name}.${base_domain} "[ -e /opt/openshift/.bootkube.done ]") ; do
   echo -n "Waiting for .bootkube.done"
   sleep 30
 done
 date
 
-echo -n "====> Removing Bootstrap from haproxy: "
-ssh -i sshkey lb."${cluster_name}.${base_domain}" "sed -i '/bootstrap\.${cluster_name}\.${base_domain}/d' /etc/haproxy/haproxy.cfg"
-ssh -i sshkey lb."${cluster_name}.${base_domain}" "sudo podman restart haproxy"
-
-date
-$INSTALLER --dir=install_dir wait-for bootstrap-complete --log-level debug
-
-remove_bootstrap
+ssh ${ssh_opts} core@lb.${cluster_name}.${base_domain} "sudo sed -i '/bootstrap/d' /etc/haproxy/haproxy.cfg"
+ssh ${ssh_opts} core@lb.${cluster_name}.${base_domain} "sudo podman stop haproxy"
+ssh ${ssh_opts} core@lb.${cluster_name}.${base_domain} "sudo podman start haproxy"
 
 virsh destroy bootstrap
 virsh undefine bootstrap --remove-all-storage
@@ -237,4 +233,4 @@ $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' 
 
 $INSTALLER --dir=install_dir wait-for install-complete --log-level debug
 
-KUBECONFIG=install_dir/auth/kubeconfig ./bin/oc create -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-daemonset-combined.yaml.template -v=8
+./bin/oc create -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-daemonset-combined.yaml.template -v=8
