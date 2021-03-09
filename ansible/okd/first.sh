@@ -9,7 +9,7 @@
 # https://getfedora.org/en/coreos/download?tab=metal_virtualized&stream=stable
 #
 
-set -xe
+set -x
 
 BASE=$(dirname $(realpath "${BASH_SOURCE[0]}"))
 
@@ -18,12 +18,13 @@ HOST_IP=$(ip a | grep -m 1 10.100 | awk '{print $2}' | sed 's/\/.*//')
 ignition_url=http://${HOST_IP}:${WEB_PORT}
 cluster_name="openshift"
 base_domain="local"
-VCPUS="8"
-RAM_MB="16000"
+VCPUS="4"
+RAM_MB="8196"
 DISK_GB="30"
 install_dir=$BASE/install_dir
+fcos_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds"
 fcos_ver="33.20210217.3.0"
-fedora_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}"
+fedora_base="${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}"
 image_url=${fedora_base}-metal.x86_64.raw.xz
 rootfs_url=${fedora_base}-live-rootfs.x86_64.img
 WORKERS="0"
@@ -48,10 +49,14 @@ cleanup() {
 #  podman run --pull=always -i --rm -v $BASE:/data -w /data  \
 #              quay.io/coreos/coreos-installer:release download -s stable -p qemu -f qcow2.xz --decompress
 
+  [ ! -e $BASE/rootfs.img ] && wget "${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}-live-rootfs.x86_64.img" -O $BASE/rootfs.img
+  [ ! -e $BASE/kernel.img ] && wget "${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}-live-kernel-x86_64" -O $BASE/kernel.img
+  [ ! -e $BASE/initramfs.img ] && wget "${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}-live-initramfs.x86_64.img" -O $BASE/initramfs.img
+
   if [ ! -e $IMAGE ] ; then
 #    podman run --privileged --pull=always --rm -v $BASE:/data -w /data \
 #        quay.io/coreos/coreos-installer:release download -s stable -p metal -f iso
-
+#   isoinfo -J -i /home/rmr/kubernetes/kubernetes-operator/ansible/okd/fedora-coreos-33.20210217.3.0-live.x86_64.iso -f
     wget https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}-live.x86_64.iso -O ${IMAGE}
   fi
 
@@ -116,7 +121,6 @@ EOF
 
   while [ ! -z "$(ls ${BASE}/*.raw)" ] ; do
     rm -f $(ls ${BASE}/*.raw | head -n1)
-    sleep 2
   done
 
   if $(virsh net-list | grep -q default); then
@@ -137,13 +141,17 @@ create_vm() {
   qemu-img create -f raw ${disk}.raw ${DISK_GB}G
   chmod a+wr ${disk}.raw
   virt-install --connect="qemu:///system" --name="${1}" --vcpus="${VCPUS}" --memory="${2}" \
-          --virt-type kvm --accelerate \
+          --virt-type kvm \
+          --accelerate \
+          --hvm \
           --os-variant rhl9 \
           --network network=default,mac="$(virsh net-dumpxml default | grep $hostname | grep mac | sed "s/ name=.*//g" | sed -n "s/.*mac='\(.*\)'/\1/p")" \
-          --graphics=none  --noautoconsole --noreboot \
+          --graphics=none \
+          --noautoconsole \
+          --noreboot \
           --disk=${disk}.raw \
-          --location=${IMAGE} \
-          --extra-args "nomodeset rd.neednet=1 coreos.inst=yes console=ttyS0 coreos.inst.install_dev=/dev/sda coreos.live.rootfs_url=${rootfs_url} coreos.inst.ignition_url=${ignition_url}/${3} coreos.inst.image_url=${image_url}"
+          --install kernel=$BASE/kernel.img,initrd=$BASE/initramfs.img \
+          --extra-args "coreos.inst=yes console=ttyS0 coreos.inst.install_dev=/dev/sda coreos.live.rootfs_url=${rootfs_url} coreos.inst.ignition_url=${ignition_url}/${3} coreos.inst.image_url=${image_url}"
 }
 
 cleanup
