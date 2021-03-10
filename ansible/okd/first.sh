@@ -111,6 +111,7 @@ sshKey: '$(cat ${BASE}/node.pub)'
 EOF
 
   $INSTALLER create manifests --dir=${install_dir}
+  sed -i 's/mastersSchedulable: false/mastersSchedulable: true/g' ${install_dir}/manifests/cluster-scheduler-02-config.yml
   $INSTALLER create ignition-configs --dir=${install_dir}
 
   while $(virsh list --state-running | grep -q running); do
