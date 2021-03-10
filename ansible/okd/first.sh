@@ -21,6 +21,7 @@ base_domain="local"
 VCPUS="4"
 RAM_MB="8196"
 DISK_GB="30"
+openshift_ver="4.7.0-0.okd-2021-03-07-090821"
 install_dir=$BASE/install_dir
 fcos_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds"
 fcos_ver="33.20210217.3.0"
@@ -63,15 +64,15 @@ cleanup() {
 
   [ ! -e $BASE/bin ] && mkdir -p $BASE/bin
 
-  if [ ! -e $BASE/bin/openshift-install ] ; then
-    wget https://github.com/openshift/okd/releases/download/4.6.0-0.okd-2021-02-14-205305/openshift-install-linux-4.6.0-0.okd-2021-02-14-205305.tar.gz
-    tar xvf openshift-install-linux-4.6.0-0.okd-2021-02-14-205305.tar.gz -C $BASE/bin/
+  if [ ! -e $BASE/bin/openshift-install ] || [ ${BASE}/bin/openshift-install version | grep -q ${openshift_ver} ] ; then
+    wget https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-install-linux-${openshift_ver}.tar.gz
+    tar xvf openshift-install-linux-${openshift_ver}.tar.gz -C $BASE/bin/
     chmod +x  $BASE/bin/openshift-install
   fi
 
-  if [ ! -e $BASE/bin/oc ] ; then
-    wget https://github.com/openshift/okd/releases/download/4.6.0-0.okd-2021-01-23-132511/openshift-client-linux-4.6.0-0.okd-2021-01-23-132511.tar.gz
-    tar xvf openshift-client-linux-4.6.0-0.okd-2021-01-23-132511.tar.gz -C $BASE/bin/
+  if [ ! -e $BASE/bin/oc ] || [ ${BASE}/bin/oc version | grep -q ${openshift_ver} ] ; then
+    wget https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-client-linux-${openshift_ver}.tar.gz
+    tar xvf openshift-client-linux-${openshift_ver}.tar.gz -C $BASE/bin/
     chmod +x  $BASE/bin/oc
   fi
 
