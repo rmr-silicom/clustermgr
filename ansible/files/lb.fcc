@@ -100,10 +100,10 @@ storage:
         backend ocp4_k8s_api_be
             balance roundrobin
             mode tcp
-            server      bootstrap 192.168.122.2:6443 check
-            server      master0 192.168.122.3:6443 check
-            server      master1 192.168.122.4:6443 check
-            server      master2 192.168.122.5:6443 check
+            server      bootstrap bootstrap.openshift.local:6443 check
+            server      master1 master1.openshift.local:6443 check
+            server      master2 master2.openshift.local:6443 check
+            server      master3 master3.openshift.local:6443 check
 
         frontend ocp4_machine_config_server_fe
             bind :22623
@@ -114,10 +114,10 @@ storage:
         backend ocp4_machine_config_server_be
             balance roundrobin
             mode tcp
-            server      bootstrap 192.168.122.2:22623 check
-            server      master0 192.168.122.3:22623 check
-            server      master1 192.168.122.4:22623 check
-            server      master2 192.168.122.5:22623 check
+            server      bootstrap bootstrap.openshift.local:22623 check
+            server      master1 master1.openshift.local:22623 check
+            server      master2 master1.openshift.local:22623 check
+            server      master3 master1.openshift.local:22623 check
 
         frontend ocp4_http_ingress_traffic_fe
             bind :80
@@ -128,9 +128,9 @@ storage:
         backend ocp4_http_ingress_traffic_be
             balance roundrobin
             mode tcp
-            server      worker1 192.168.122.6:80 check
-            server      worker2 192.168.122.7:80 check
-            server      worker3 192.168.122.8:80 check
+            server      worker1 worker1.openshift.local:80 check
+            server      worker2 worker2.openshift.local:80 check
+            server      worker3 worker3.openshift.local:80 check
 
         frontend ocp4_https_ingress_traffic_fe
             bind :443
@@ -141,7 +141,7 @@ storage:
         backend ocp4_https_ingress_traffic_be
             balance roundrobin
             mode tcp
-            server      worker1 192.168.122.6:443 check
-            server      worker2 192.168.122.7:443 check
-            server      worker3 192.168.122.8:443 check
+            server      worker1 worker1.openshift.local:443 check
+            server      worker2 worker2.openshift.local:443 check
+            server      worker3 worker3.openshift.local:443 check
 

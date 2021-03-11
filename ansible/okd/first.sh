@@ -19,7 +19,7 @@ cluster_name="openshift"
 base_domain="local"
 VCPUS="4"
 RAM_MB="8196"
-DISK_GB="30"
+DISK_GB="20"
 openshift_ver="4.7.0-0.okd-2021-03-07-090821"
 # openshift_ver="4.6.0-0.okd-2021-02-14-205305"
 install_dir=$BASE/install_dir
@@ -32,10 +32,35 @@ WORKERS="0"
 MASTERS="3"
 IMAGE="$BASE/fedora-coreos-${fcos_ver}-live.x86_64.iso"
 ssh_opts="-i node -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
 INSTALLER=$BASE/bin/openshift-install
 OC=$BASE/bin/oc
 export KUBECONFIG=${install_dir}/auth/kubeconfig
+
+# Process Arguments
+while [[ $# -gt 0 ]] ; do
+  case $1 in
+      -m|--masters)
+      MASTERS="$2"
+      shift
+      shift
+      ;;
+      -w|--workers)
+      WORKERS="$2"
+      shift
+      shift
+      ;;
+      -r|--ram)
+      RAM_MB="$2"
+      shift
+      shift
+      ;;
+      -d|--disk)
+      DISK_GB="$2"
+      shift
+      shift
+      ;;
+  esac
+done
 
 start_fileserver() {
   if $(docker ps | grep "static-file-server" > /dev/null 2>&1) ; then
@@ -115,9 +140,9 @@ EOF
   $INSTALLER create manifests --dir=${install_dir}
   if [ "$WORKERS" = "0" ] ; then
     sed -i 's/mastersSchedulable: false/mastersSchedulable: true/g' ${install_dir}/manifests/cluster-scheduler-02-config.yml
-    sed -i 's/worker1 192.168.122.6/master1 192.168.122.3/g' $BASE/lb.fcc
-    sed -i 's/worker2 192.168.122.7/master2 192.168.122.4/g' $BASE/lb.fcc
-    sed -i 's/worker3 192.168.122.8/master3 192.168.122.5/g' $BASE/lb.fcc
+    sed -i 's/worker1 worker1.openshift.local/master1 master1.openshift.local/g' $BASE/lb.fcc
+    sed -i 's/worker2 worker2.openshift.local/master2 master2.openshift.local/g' $BASE/lb.fcc
+    sed -i 's/worker3 worker3.openshift.local/master3 master3.openshift.local/g' $BASE/lb.fcc
   fi
 
   $INSTALLER create ignition-configs --dir=${install_dir}
@@ -239,5 +264,7 @@ virsh undefine bootstrap --remove-all-storage
 $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' | xargs --no-run-if-empty $OC adm certificate approve
 
 $INSTALLER --dir=${install_dir} wait-for install-complete --log-level debug
+
+$INSTALLER gather bootstrap --dir=${install_dir}
 
 $OC create -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-daemonset-combined.yaml.template -v=8
