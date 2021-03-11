@@ -35,6 +35,7 @@ ssh_opts="-i node -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHost
 INSTALLER=$BASE/bin/openshift-install
 OC=$BASE/bin/oc
 export KUBECONFIG=${install_dir}/auth/kubeconfig
+disk_type="raw"
 
 # Process Arguments
 while [[ $# -gt 0 ]] ; do
@@ -157,8 +158,8 @@ EOF
     virsh undefine $(virsh list --all --name | head -n1) --remove-all-storage
   done
 
-  while [ ! -z "$(ls ${BASE}/*.raw)" ] ; do
-    rm -f $(ls ${BASE}/*.raw | head -n1)
+  while [ ! -z "$(ls ${BASE}/*.$disk_type)" ] ; do
+    rm -f $(ls ${BASE}/*.$disk_type | head -n1)
   done
 
   if $(virsh net-list | grep -q default); then
@@ -172,20 +173,26 @@ EOF
 
 create_vm() {
   local hostname=$1
-  local disk=${BASE}/${hostname}
+  local disk=${BASE}/${hostname}.$disk_type
 
-  qemu-img create -f raw ${disk}.raw ${DISK_GB}G
-  chmod a+wr ${disk}.raw
+  qemu-img create -f $disk_type ${disk} ${DISK_GB}G
+  chmod a+wr ${disk}
+
+  lspci_args=""
+  if [ $hostname = "master1" ] ; then
+    lspci_args="--hostdev $(lspci -d 1c2c:1000 | awk '{ print $1 }')"
+  fi
+
   virt-install --connect="qemu:///system" --name="${1}" --vcpus="${VCPUS}" --memory="${2}" \
           --virt-type kvm \
           --accelerate \
-          --hvm \
+          --hvm $lspci_args \
           --os-variant rhl9 \
           --network network=default,mac="$(virsh net-dumpxml default | grep $hostname | grep mac | sed "s/ name=.*//g" | sed -n "s/.*mac='\(.*\)'/\1/p")" \
           --graphics=none \
           --noautoconsole \
           --noreboot \
-          --disk=${disk}.raw \
+          --disk=${disk} \
           --install kernel=$BASE/kernel.img,initrd=$BASE/initramfs.img \
           --extra-args "coreos.inst=yes console=ttyS0 coreos.inst.install_dev=/dev/sda coreos.live.rootfs_url=${rootfs_url} coreos.inst.ignition_url=${ignition_url}/${3} coreos.inst.image_url=${image_url}"
 }
@@ -214,15 +221,16 @@ while ! $(nc -v -z -w 1 lb.openshift.local 22 > /dev/null 2>&1); do
   sleep 30
 done
 
-virsh start "bootstrap"
-while ! $(nc -v -z -w 1 lb.openshift.local 6443 > /dev/null 2>&1); do
-  echo "Waiting for bootstrap"
-  sleep 5
-done
-
 for i in $(seq 1 $MASTERS) ; do
     virsh start "master$i"
 done
+
+virsh start "bootstrap"
+while ! $(nc -v -z -w 1 lb.openshift.local 6443 > /dev/null 2>&1); do
+  echo "Waiting for bootstrap"
+  sleep 30
+done
+
 
 for i in $(seq 1 $WORKERS) ; do
     virsh start "worker$i"
