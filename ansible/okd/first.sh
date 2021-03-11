@@ -12,7 +12,6 @@
 set -x
 
 BASE=$(dirname $(realpath "${BASH_SOURCE[0]}"))
-
 WEB_PORT=8080
 HOST_IP=$(ip a | grep -m 1 10.100 | awk '{print $2}' | sed 's/\/.*//')
 ignition_url=http://${HOST_IP}:${WEB_PORT}
@@ -22,19 +21,21 @@ VCPUS="4"
 RAM_MB="8196"
 DISK_GB="30"
 openshift_ver="4.7.0-0.okd-2021-03-07-090821"
+# openshift_ver="4.6.0-0.okd-2021-02-14-205305"
 install_dir=$BASE/install_dir
 fcos_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds"
 fcos_ver="33.20210217.3.0"
 fedora_base="${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}"
 image_url=${fedora_base}-metal.x86_64.raw.xz
 rootfs_url=${fedora_base}-live-rootfs.x86_64.img
-WORKERS="1"
+WORKERS="0"
 MASTERS="3"
 IMAGE="$BASE/fedora-coreos-${fcos_ver}-live.x86_64.iso"
 ssh_opts="-i node -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 INSTALLER=$BASE/bin/openshift-install
 OC=$BASE/bin/oc
+export KUBECONFIG=${install_dir}/auth/kubeconfig
 
 start_fileserver() {
   if $(docker ps | grep "static-file-server" > /dev/null 2>&1) ; then
@@ -64,16 +65,16 @@ cleanup() {
 
   [ ! -e $BASE/bin ] && mkdir -p $BASE/bin
 
-  if [ ! -e $BASE/bin/openshift-install ] || [ ${BASE}/bin/openshift-install version | grep -q ${openshift_ver} ] ; then
+  if [ ! -e ${INSTALLER} ] || [ ${INSTALLER} version | grep -q ${openshift_ver} ] ; then
     wget https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-install-linux-${openshift_ver}.tar.gz
     tar xvf openshift-install-linux-${openshift_ver}.tar.gz -C $BASE/bin/
-    chmod +x  $BASE/bin/openshift-install
+    chmod +x  ${INSTALLER}
   fi
 
-  if [ ! -e $BASE/bin/oc ] || [ ${BASE}/bin/oc version | grep -q ${openshift_ver} ] ; then
+  if [ ! -e ${OC} ] || [ ${OC} version | grep -q ${openshift_ver} ] ; then
     wget https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-client-linux-${openshift_ver}.tar.gz
     tar xvf openshift-client-linux-${openshift_ver}.tar.gz -C $BASE/bin/
-    chmod +x  $BASE/bin/oc
+    chmod +x  ${OC}
   fi
 
   if [ -e .openshift_install.log ] ; then
@@ -110,9 +111,18 @@ pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"b3BlbnNoaWZ0LXJlbGVhc2UtZG
 sshKey: '$(cat ${BASE}/node.pub)'
 EOF
 
+  cp $BASE/../files/lb.fcc $BASE/lb.fcc
   $INSTALLER create manifests --dir=${install_dir}
-  sed -i 's/mastersSchedulable: false/mastersSchedulable: true/g' ${install_dir}/manifests/cluster-scheduler-02-config.yml
+  if [ "$WORKERS" = "0" ] ; then
+    sed -i 's/mastersSchedulable: false/mastersSchedulable: true/g' ${install_dir}/manifests/cluster-scheduler-02-config.yml
+    sed -i 's/worker1 192.168.122.6/master1 192.168.122.3/g' $BASE/lb.fcc
+    sed -i 's/worker2 192.168.122.7/master2 192.168.122.4/g' $BASE/lb.fcc
+    sed -i 's/worker3 192.168.122.8/master3 192.168.122.5/g' $BASE/lb.fcc
+  fi
+
   $INSTALLER create ignition-configs --dir=${install_dir}
+
+  podman run --pull=always -i --rm quay.io/coreos/fcct -p -s <$BASE/lb.fcc > ${install_dir}/lb.ign
 
   while $(virsh list --state-running | grep -q running); do
     virsh destroy $(virsh list --state-running --name | head -n1)
@@ -133,8 +143,6 @@ EOF
 
   virsh net-define --file ${BASE}/../files/default.xml
   virsh net-start default
-
-  podman run --pull=always -i --rm quay.io/coreos/fcct -p -s <$BASE/../files/lb.fcc > ${install_dir}/lb.ign
 }
 
 create_vm() {
@@ -201,16 +209,13 @@ while ! $(nc -v -z -w 1 master$MASTERS.openshift.local 22 > /dev/null 2>&1); do
 done
 date
 
-cp install_dir/auth/kubeconfig install_dir/auth/kubeconfig.orig
-export KUBECONFIG=$(pwd)/auth/kubeconfig
-
 while ! $(ssh ${ssh_opts} core@bootstrap.${cluster_name}.${base_domain} "[ -e /opt/openshift/cco-bootstrap.done ]") ; do
   echo -n "Waiting for cco-bootstrap.done"
   sleep 30
 done
 date
 
-$INSTALLER --dir=install_dir wait-for bootstrap-complete --log-level debug
+$INSTALLER --dir=${install_dir} wait-for bootstrap-complete --log-level debug
 
 while ! $(ssh ${ssh_opts} core@bootstrap.${cluster_name}.${base_domain} "[ -e /opt/openshift/cb-bootstrap.done ]") ; do
   echo -n "Waiting for cb-bootstrap.done"
@@ -233,6 +238,6 @@ virsh undefine bootstrap --remove-all-storage
 
 $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' | xargs --no-run-if-empty $OC adm certificate approve
 
-$INSTALLER --dir=install_dir wait-for install-complete --log-level debug
+$INSTALLER --dir=${install_dir} wait-for install-complete --log-level debug
 
-./bin/oc create -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-daemonset-combined.yaml.template -v=8
+$OC create -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-daemonset-combined.yaml.template -v=8

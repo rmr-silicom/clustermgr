@@ -130,6 +130,7 @@ storage:
             mode tcp
             server      worker1 192.168.122.6:80 check
             server      worker2 192.168.122.7:80 check
+            server      worker3 192.168.122.8:80 check
 
         frontend ocp4_https_ingress_traffic_fe
             bind :443
@@ -142,3 +143,5 @@ storage:
             mode tcp
             server      worker1 192.168.122.6:443 check
             server      worker2 192.168.122.7:443 check
+            server      worker3 192.168.122.8:443 check
+
