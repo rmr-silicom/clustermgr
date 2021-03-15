@@ -4,6 +4,7 @@
   <forward mode='nat'/>
   <bridge name='virbr0' stp='on' delay='0'/>
   <mac address='52:54:00:0a:cd:21'/>
+  <domain name="openshift.local" localOnly="no"/>
   <dns>
     <host ip='192.168.122.9'>
       <hostname>api-int.openshift.local</hostname>

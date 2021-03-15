@@ -36,6 +36,7 @@ INSTALLER=$BASE/bin/openshift-install
 OC=$BASE/bin/oc
 export KUBECONFIG=${install_dir}/auth/kubeconfig
 disk_type="raw"
+DESTROY="no"
 
 # Process Arguments
 while [[ $# -gt 0 ]] ; do
@@ -58,6 +59,13 @@ while [[ $# -gt 0 ]] ; do
       -d|--disk)
       DISK_GB="$2"
       shift
+      shift
+      ;;
+      --destroy)
+      DESTROY="yes"
+      shift
+      ;;
+      *)
       shift
       ;;
   esac
@@ -133,8 +141,8 @@ networking:
 platform:
   none: {}
 fips: false
-pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"b3BlbnNoaWZ0LXJlbGVhc2UtZGV2K29jbV9hY2Nlc3NfMmQ2NmVjYWE0YmU0NGJlNGJmZThiNDYyODBjMTAxZDc6TDVBN0JST0laVDNWSlpHOUwyMTIwNEpENTFZWTVERjkxUjhGNDRJQk1VME1IRlpFR0FQUURCSE5aMUlESE5CUA==","email":"rmr@silicom.dk"},"quay.io":{"auth":"b3BlbnNoaWZ0LXJlbGVhc2UtZGV2K29jbV9hY2Nlc3NfMmQ2NmVjYWE0YmU0NGJlNGJmZThiNDYyODBjMTAxZDc6TDVBN0JST0laVDNWSlpHOUwyMTIwNEpENTFZWTVERjkxUjhGNDRJQk1VME1IRlpFR0FQUURCSE5aMUlESE5CUA==","email":"rmr@silicom.dk"},"registry.connect.redhat.com":{"auth":"fHVoYy1wb29sLTkwMGVkODM4LTZkZWMtNDhiNS04N2FiLTE2N2I2MTdmYWY5MDpleUpoYkdjaU9pSlNVelV4TWlKOS5leUp6ZFdJaU9pSmhOemxrTjJNeU5HTmpZMlkwWXpFNE9XUTJNVGd3WWpGalptWmpNVEE0TmlKOS5iOERUSEJuczZlQnF0ZUhfTlpta2lOcVZCcnJIRXI2ZFRia2tydzFDOTFOMUJrNHVBTGhnRTE0eE1Qd25FaXJkNWtwVXhtOFEtZlJMTERxR241amgtQVRXRlFlZmFMYy1kT25CX0hIdm5qVEZtQ3BreFVPT0hiVmI4X3FNdENIb0VOemFHc09ReEcxaG5RY0VKaXlyaXdmTUVKWk5KbGFFZExwX1I0YmlERDQ5NlhMMTNVRHlnUWpQZWZZVnBRR2xNXzlIT3VXWDVWazNtWW9zUFBROXd1cndGRjZXYjMtM1J1RGtLV0lrMVZpWWhPclpSTkZTNmJ5UWZCUjZqTVBNd2Rhc0ZmRmRnRWwwVDQ2Uk5ZaGpwMktxYVA1MDNwUHltT1dtT2NNTE5lTzJXWHc2V3VQRzZrTEphbHVkV1pUTTNabHNpTTNOc1JSZFdnblZHQmlaWWNMODBsNUVBLUUzeVBJRFlaSk1yZ0xJMkJkSXc1R2ZfT3ctaFZXY2FxczVhTVlaTC1CcmdKNG5pTVhYd2VpZFVKTlJaUjFobHBrM1JGM0hSZkU5MGNCc3FOSW5FZXM3N244VVJKX2lFZUxLc3dJQUxGU1JZWjdYWDhwWG9mU2ZyVEVkV0ZBMGY2Nk92WHRqWFIzMTdrSU9TOGx2RlduZE5iYUJPZVJQaDhibndackotWXFOdG5iMzduNkZ0TXdjUzBfVVotUjZjcGNnUUpmSjNmaG50ZTVnckR3RkpXYTh1eXRRcEFpMWt5bmhFQ2ktWGFiLVlRQ2hJTHFhdGN5Yk1SUXdzYTVfd0tBSmNaQkJHQzNrVThFeTBSVW5pUmY0aXBLLW1jaERHNjl1cXFwQ1JMS1B3SmVySm1SVE5EbUdFYnZfS3B6eGhxckVQbENXbV9TUUVkUQ==","email":"rmr@silicom.dk"},"registry.redhat.io":{"auth":"fHVoYy1wb29sLTkwMGVkODM4LTZkZWMtNDhiNS04N2FiLTE2N2I2MTdmYWY5MDpleUpoYkdjaU9pSlNVelV4TWlKOS5leUp6ZFdJaU9pSmhOemxrTjJNeU5HTmpZMlkwWXpFNE9XUTJNVGd3WWpGalptWmpNVEE0TmlKOS5iOERUSEJuczZlQnF0ZUhfTlpta2lOcVZCcnJIRXI2ZFRia2tydzFDOTFOMUJrNHVBTGhnRTE0eE1Qd25FaXJkNWtwVXhtOFEtZlJMTERxR241amgtQVRXRlFlZmFMYy1kT25CX0hIdm5qVEZtQ3BreFVPT0hiVmI4X3FNdENIb0VOemFHc09ReEcxaG5RY0VKaXlyaXdmTUVKWk5KbGFFZExwX1I0YmlERDQ5NlhMMTNVRHlnUWpQZWZZVnBRR2xNXzlIT3VXWDVWazNtWW9zUFBROXd1cndGRjZXYjMtM1J1RGtLV0lrMVZpWWhPclpSTkZTNmJ5UWZCUjZqTVBNd2Rhc0ZmRmRnRWwwVDQ2Uk5ZaGpwMktxYVA1MDNwUHltT1dtT2NNTE5lTzJXWHc2V3VQRzZrTEphbHVkV1pUTTNabHNpTTNOc1JSZFdnblZHQmlaWWNMODBsNUVBLUUzeVBJRFlaSk1yZ0xJMkJkSXc1R2ZfT3ctaFZXY2FxczVhTVlaTC1CcmdKNG5pTVhYd2VpZFVKTlJaUjFobHBrM1JGM0hSZkU5MGNCc3FOSW5FZXM3N244VVJKX2lFZUxLc3dJQUxGU1JZWjdYWDhwWG9mU2ZyVEVkV0ZBMGY2Nk92WHRqWFIzMTdrSU9TOGx2RlduZE5iYUJPZVJQaDhibndackotWXFOdG5iMzduNkZ0TXdjUzBfVVotUjZjcGNnUUpmSjNmaG50ZTVnckR3RkpXYTh1eXRRcEFpMWt5bmhFQ2ktWGFiLVlRQ2hJTHFhdGN5Yk1SUXdzYTVfd0tBSmNaQkJHQzNrVThFeTBSVW5pUmY0aXBLLW1jaERHNjl1cXFwQ1JMS1B3SmVySm1SVE5EbUdFYnZfS3B6eGhxckVQbENXbV9TUUVkUQ==","email":"rmr@silicom.dk"}}}'
-sshKey: '$(cat ${BASE}/node.pub)'
+pullSecret: '$(cat ${BASE}/../files/pull-secret.json)'
+sshKey: '$(cat ${BASE}/../files/node.pub)'
 EOF
 
   cp $BASE/../files/lb.fcc $BASE/lb.fcc
@@ -178,9 +186,14 @@ create_vm() {
   qemu-img create -f $disk_type ${disk} ${DISK_GB}G
   chmod a+wr ${disk}
 
+  device="$(lspci -d 1c2c:1000 | awk '{ print $1 }')"
   lspci_args=""
   if [ $hostname = "master1" ] ; then
-    lspci_args="--hostdev $(lspci -d 1c2c:1000 | awk '{ print $1 }')"
+    if [ ! -z "$device" ] ; then
+      lspci_args="--hostdev $device"
+    else
+      lspci_args="--hostdev $(lspci -d 10ec:525a | awk '{ print $1 }')"
+    fi
   fi
 
   virt-install --connect="qemu:///system" --name="${1}" --vcpus="${VCPUS}" --memory="${2}" \
@@ -198,9 +211,14 @@ create_vm() {
 }
 
 cleanup
+
+if [ $DESTROY = "yes" ] ; then
+  exit 0
+fi
+
 start_fileserver
-create_vm "lb" "4096" "lb.ign"
-create_vm "bootstrap" "${RAM_MB}" "bootstrap.ign"
+create_vm "lb" "2048" "lb.ign"
+create_vm "bootstrap" "8196" "bootstrap.ign"
 
 for i in $(seq 1 $MASTERS) ; do
     create_vm "master$i" "${RAM_MB}" "master.ign"
@@ -262,6 +280,8 @@ while ! $(ssh ${ssh_opts} core@bootstrap.${cluster_name}.${base_domain} "[ -e /o
 done
 date
 
+$INSTALLER gather bootstrap --dir=${install_dir}
+
 ssh ${ssh_opts} core@lb.${cluster_name}.${base_domain} "sudo sed -i '/bootstrap/d' /etc/haproxy/haproxy.cfg"
 ssh ${ssh_opts} core@lb.${cluster_name}.${base_domain} "sudo podman stop haproxy"
 ssh ${ssh_opts} core@lb.${cluster_name}.${base_domain} "sudo podman start haproxy"
@@ -272,7 +292,5 @@ virsh undefine bootstrap --remove-all-storage
 $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' | xargs --no-run-if-empty $OC adm certificate approve
 
 $INSTALLER --dir=${install_dir} wait-for install-complete --log-level debug
-
-$INSTALLER gather bootstrap --dir=${install_dir}
 
 $OC create -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-daemonset-combined.yaml.template -v=8
