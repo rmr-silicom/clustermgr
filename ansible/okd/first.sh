@@ -294,3 +294,7 @@ $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' 
 $INSTALLER --dir=${install_dir} wait-for install-complete --log-level debug
 
 $OC create -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-daemonset-combined.yaml.template -v=8
+
+$OC apply -f ${BASE}/../files/silicom-registry.yaml
+
+$OC apply -f ${BASE}/../files/nfd-daemonset.yaml

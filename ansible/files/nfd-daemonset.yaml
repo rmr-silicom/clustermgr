@@ -1,16 +1,34 @@
-# This template contains an example of running nfd-master and nfd-worker in the
-# same pod. All changes in this template should be applied to Helm chart too.
-#
+---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: node-feature-discovery # NFD namespace
+  name: nfd # NFD namespace
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: nfd-master
-  namespace: node-feature-discovery
+  name: nfd-sa
+  namespace: nfd
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: scc-nfd
+  namespace: nfd
+allowPrivilegedContainer: true
+allowHostDirVolumePlugin: true
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+users:
+- system:serviceaccount:nfd:nfd-sa
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -42,7 +60,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: nfd-master
-  namespace: node-feature-discovery
+  namespace: nfd
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -50,7 +68,7 @@ metadata:
   labels:
     app: nfd
   name: nfd
-  namespace: node-feature-discovery
+  namespace: nfd
 spec:
   selector:
     matchLabels:
@@ -60,7 +78,7 @@ spec:
       labels:
         app: nfd
     spec:
-      serviceAccount: nfd-master
+      serviceAccountName: nfd-sa
       containers:
         - env:
           - name: NODE_NAME
@@ -148,7 +166,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nfd-worker-conf
-  namespace: node-feature-discovery
+  namespace: nfd
 data:
   nfd-worker.conf: | ### <NFD-WORKER-CONF-START-DO-NOT-REMOVE>
     #core:
@@ -267,7 +285,7 @@ data:
 #kind: ConfigMap
 #metadata:
 #  name: custom-source-extra-rules
-#  namespace: node-feature-discovery
+#  namespace: nfd
 #data:
 ## Filename doesn't matter, and there can be multiple. They just need to be unique.
 #  custom.conf: |
