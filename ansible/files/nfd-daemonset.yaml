@@ -1,9 +1,12 @@
 ---
+
 apiVersion: v1
 kind: Namespace
 metadata:
   name: nfd # NFD namespace
+
 ---
+
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -11,6 +14,7 @@ metadata:
   namespace: nfd
 
 ---
+
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
@@ -30,9 +34,11 @@ users:
 - system:serviceaccount:nfd:nfd-sa
 
 ---
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  # "namespace" omitted since ClusterRoles are not namespaced
   name: nfd-master
 rules:
 - apiGroups:
@@ -48,7 +54,9 @@ rules:
   - update
   # List only needed for --prune
   - list
+
 ---
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -59,9 +67,11 @@ roleRef:
   name: nfd-master
 subjects:
 - kind: ServiceAccount
-  name: nfd-master
+  name: nfd-sa
   namespace: nfd
+
 ---
+
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -189,7 +199,7 @@ data:
     #    logFile:
     #    logFileMaxSize: 1800
     #    skipLogHeaders: false
-    #sources:
+    sources:
     #  cpu:
     #    cpuid:
     ##     NOTE: whitelist has priority over blacklist
@@ -257,7 +267,7 @@ data:
     #            device: ["1014", "1017"]
              - pciId :
                  vendor: ["1c2c"]
-                 device: ["1000", "1100"]
+                 device: ["1000", "1001"]
     #    - name: "my.usb.feature"
     #      matchOn:
     #        - usbId:

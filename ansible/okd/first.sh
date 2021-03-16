@@ -31,7 +31,7 @@ rootfs_url=${fedora_base}-live-rootfs.x86_64.img
 WORKERS="0"
 MASTERS="3"
 IMAGE="$BASE/fedora-coreos-${fcos_ver}-live.x86_64.iso"
-ssh_opts="-i node -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+ssh_opts="-i $BASE/../files/node -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 INSTALLER=$BASE/bin/openshift-install
 OC=$BASE/bin/oc
 export KUBECONFIG=${install_dir}/auth/kubeconfig
@@ -293,8 +293,5 @@ $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' 
 
 $INSTALLER --dir=${install_dir} wait-for install-complete --log-level debug
 
-$OC create -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-daemonset-combined.yaml.template -v=8
-
 $OC apply -f ${BASE}/../files/silicom-registry.yaml
-
 $OC apply -f ${BASE}/../files/nfd-daemonset.yaml

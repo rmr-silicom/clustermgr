@@ -3,7 +3,7 @@ kind: MachineConfig
 metadata:
   labels:
     machineconfiguration.openshift.io/role: master
-  name: 100-master-silicom-registry
+  name: 100-enable-silicom-registry
 spec:
   config:
     ignition:
@@ -11,7 +11,9 @@ spec:
     storage:
       files:
       - contents:
-          source: data:text/plain;charset=utf-8;base64,W3JlZ2lzdHJpZXMuaW5zZWN1cmVdCnJlZ2lzdHJpZXMgPSBbJ2RvY2tlci5zaWxpY29tLmRrOjUwMDAnXQ==
+          source: data:text/plain;charset=utf-8;base64,Q1JJT19DT05GSUdfT1BUSU9OUz0tLWluc2VjdXJlLXJlZ2lzdHJ5PWRvY2tlci5zaWxpY29tLmRrOjUwMDA=
         filesystem: root
         mode: 0420
-        path: /etc/containers/registries.d/100-master-silicom-registry
+        path: /etc/sysconfig/crio
+
+# CRIO_CONFIG_OPTIONS="--insecure-registry='docker.silicom.dk:5000'"
