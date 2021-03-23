@@ -69,3 +69,20 @@ iptables -t nat -I PREROUTING -p tcp --dport 443 -j DNAT --to 192.168.122.9:443
 
 # For support
 https://docs.openshift.com/container-platform/4.1/support/gathering-cluster-data.html
+https://openshift.tips/registries/
+
+# Tools
+```
+kopeo copy docker://alpine:latest oci:alpine:latest
+ls alpine
+```
+```
+umoci unpack --image alpine:latest alpine-bundle
+ls alpine-bundle
+```
+
+```
+oc adm upgrade
+
+oc debug node/master1
+```

@@ -152,6 +152,12 @@ EOF
     sed -i 's/worker1 worker1.openshift.local/master1 master1.openshift.local/g' $BASE/lb.fcc
     sed -i 's/worker2 worker2.openshift.local/master2 master2.openshift.local/g' $BASE/lb.fcc
     sed -i 's/worker3 worker3.openshift.local/master3 master3.openshift.local/g' $BASE/lb.fcc
+  else
+    sed -i 's/mastersSchedulable: true/mastersSchedulable: false/g' ${install_dir}/manifests/cluster-scheduler-02-config.yml
+  fi
+
+  if [ "$WORKERS" = "2" ] ; then
+    sed -i '/worker3 worker3.openshift.local/d' $BASE/lb.fcc
   fi
 
   $INSTALLER create ignition-configs --dir=${install_dir}
@@ -188,7 +194,7 @@ create_vm() {
 
   device="$(lspci -d 1c2c:1000 | awk '{ print $1 }')"
   lspci_args=""
-  if [ $hostname = "master1" ] ; then
+  if [ $hostname = "worker1" ] ; then
     if [ ! -z "$device" ] ; then
       lspci_args="--hostdev $device"
     else
@@ -282,14 +288,21 @@ date
 
 $INSTALLER gather bootstrap --dir=${install_dir}
 
-ssh ${ssh_opts} core@lb.${cluster_name}.${base_domain} "sudo sed -i '/bootstrap/d' /etc/haproxy/haproxy.cfg"
-ssh ${ssh_opts} core@lb.${cluster_name}.${base_domain} "sudo podman stop haproxy"
-ssh ${ssh_opts} core@lb.${cluster_name}.${base_domain} "sudo podman start haproxy"
-
 virsh destroy bootstrap
 virsh undefine bootstrap --remove-all-storage
 
+virsh destory lb
+sed -i '/bootstrap/d' $BASE/lb.fcc
+virsh start "lb"
+while ! $(nc -v -z -w 1 lb.openshift.local 22 > /dev/null 2>&1); do
+  echo "Waiting for lb"
+  sleep 30
+done
+
+
+sleep 300
 $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' | xargs --no-run-if-empty $OC adm certificate approve
+$OC get csr -o name | xargs oc adm certificate approve
 
 $INSTALLER --dir=${install_dir} wait-for install-complete --log-level debug
 

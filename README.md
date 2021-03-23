@@ -4,11 +4,13 @@
 
 Setup base image for all nodes including master.
 
+```
 virt-builder fedora-32 --root-password password:123456 --update --selinux-relabel
 virt-customize -a fedora-32.img --run-command 'dnf update -y' --root-password password:123456
 virt-customize -a fedora-32.img --run-command 'dnf install podman -y' --root-password password:123456
 virt-customize -a fedora-32.img --run-command 'dnf install @container-tools -y' --root-password password:123456
 virt-customize -a fedora-32.img --run-command 'dnf install kubernetes -y' --root-password password:123456
+```
 
 Clone VM template into 3 VMs, where there are 2 nodes and 1 master.
 
