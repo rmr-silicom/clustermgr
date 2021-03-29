@@ -291,7 +291,7 @@ $INSTALLER gather bootstrap --dir=${install_dir}
 virsh destroy bootstrap
 virsh undefine bootstrap --remove-all-storage
 
-virsh destory lb
+virsh destroy lb
 sed -i '/bootstrap/d' $BASE/lb.fcc
 virsh start "lb"
 while ! $(nc -v -z -w 1 lb.openshift.local 22 > /dev/null 2>&1); do
@@ -299,12 +299,20 @@ while ! $(nc -v -z -w 1 lb.openshift.local 22 > /dev/null 2>&1); do
   sleep 30
 done
 
+sleep 480
 
-sleep 300
 $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' | xargs --no-run-if-empty $OC adm certificate approve
 $OC get csr -o name | xargs oc adm certificate approve
 
 $INSTALLER --dir=${install_dir} wait-for install-complete --log-level debug
 
-$OC apply -f ${BASE}/../files/silicom-registry.yaml
-$OC apply -f ${BASE}/../files/nfd-daemonset.yaml
+while ! $(oc get nodes | grep -q worker1) ; do
+  $OC get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' | xargs --no-run-if-empty $OC adm certificate approve
+  $OC get csr -o name | xargs oc adm certificate approve
+  sleep 120
+done
+
+# $OC apply -f ${BASE}/../files/silicom-registry.yaml
+# $OC apply -f ${BASE}/../files/nfd-daemonset.yaml
+
+cp -av $KUBECONFIG ~/.kube/
