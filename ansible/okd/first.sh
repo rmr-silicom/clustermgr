@@ -71,6 +71,11 @@ while [[ $# -gt 0 ]] ; do
   esac
 done
 
+if ! $(swapon | grep -q swapfile) ; then
+  echo "Enable swap";
+  exit 0
+fi
+
 start_fileserver() {
   if $(docker ps | grep "static-file-server" > /dev/null 2>&1) ; then
       docker rm -f static-file-server
