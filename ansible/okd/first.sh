@@ -20,17 +20,12 @@ base_domain="local"
 VCPUS="4"
 RAM_MB="8196"
 DISK_GB="20"
-openshift_ver="4.7.0-0.okd-2021-03-07-090821"
-# openshift_ver="4.6.0-0.okd-2021-02-14-205305"
+# openshift_ver="4.7.0-0.okd-2021-03-07-090821"
+openshift_ver="4.6.0-0.okd-2021-02-14-205305"
+# openshift_ver="4.6.0-0.okd-2021-01-23-132511"
 install_dir=$BASE/install_dir
-fcos_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds"
-fcos_ver="33.20210217.3.0"
-fedora_base="${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}"
-image_url=${fedora_base}-metal.x86_64.raw.xz
-rootfs_url=${fedora_base}-live-rootfs.x86_64.img
 WORKERS="0"
 MASTERS="3"
-IMAGE="$BASE/fedora-coreos-${fcos_ver}-live.x86_64.iso"
 ssh_opts="-i $BASE/../files/node -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 INSTALLER=$BASE/bin/openshift-install
 OC=$BASE/bin/oc
@@ -76,11 +71,46 @@ if ! $(swapon | grep -q swapfile) ; then
   exit 0
 fi
 
+setup_fcos() {
+  fcos_ver="33.20210217.3.0"
+  fedora_base="fedora-coreos"
+  image_base="https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/${fcos_ver}/x86_64"
+  image_url=${image_base}/fedora-coreos-${fcos_ver}-metal.x86_64.raw.xz
+  rootfs_url=${image_base}/fedora-coreos-${fcos_ver}-live-rootfs.x86_64.img
+  initramfs_url=${image_base}/fedora-coreos-${fcos_ver}-live-initramfs.x86_64.img
+  kernel_url=${image_base}/fedora-coreos-${fcos_ver}-live-kernel-x86_64
+  downloads=$BASE/downloads/openshift-v4/dependencies/fcos/${fcos_ver}
+
+  ocp_install_url=https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-install-linux-${openshift_ver}.tar.gz
+  ocp_client_url=https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-client-linux-${openshift_ver}.tar.gz
+  if [ ! -e $downloads ] ; then
+    mkdir -p $downloads
+  fi
+}
+
+setup_rhcos() {
+  rhcos_ver=4.6
+  rhcos_release_ver=latest
+  image_base=https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/${rhcos_ver}/${rhcos_release_ver}
+  image_url=${image_base}/rhcos-metal.x86_64.raw.gz
+  kernel_url=${image_base}/rhcos-live-kernel-x86_64
+  rootfs_url=${image_base}/rhcos-live-rootfs.x86_64.img
+  initramfs_url=${image_base}/rhcos-live-initramfs.x86_64.img
+  downloads=$BASE/downloads/openshift-v4/dependencies/rhcos/${rhcos_ver}/${rhcos_release_ver}
+  ocp_client_url=https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.6.23/openshift-client-linux.tar.gz
+  ocp_install_url=https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.6.23/openshift-install-linux.tar.gz
+
+  if [ ! -e $downloads ] ; then
+    mkdir -p $downloads
+  fi
+}
+
 start_fileserver() {
   if $(docker ps | grep "static-file-server" > /dev/null 2>&1) ; then
       docker rm -f static-file-server
   fi
 
+  cp $downloads/*.img ${install_dir}
   docker run -d --name static-file-server --rm  -v ${install_dir}:/web -p ${WEB_PORT}:${WEB_PORT} -u $(id -u):$(id -g) halverneus/static-file-server:latest
   sleep 1
   curl ${HOST_IP}:8080/master.ign -s > /dev/null
@@ -88,33 +118,18 @@ start_fileserver() {
 
 cleanup() {
 
-#  podman run --pull=always -i --rm -v $BASE:/data -w /data  \
-#              quay.io/coreos/coreos-installer:release download -s stable -p qemu -f qcow2.xz --decompress
-
-  [ ! -e $BASE/rootfs.img ] && wget "${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}-live-rootfs.x86_64.img" -O $BASE/rootfs.img
-  [ ! -e $BASE/kernel.img ] && wget "${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}-live-kernel-x86_64" -O $BASE/kernel.img
-  [ ! -e $BASE/initramfs.img ] && wget "${fcos_base}/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}-live-initramfs.x86_64.img" -O $BASE/initramfs.img
-
-  if [ ! -e $IMAGE ] ; then
-#    podman run --privileged --pull=always --rm -v $BASE:/data -w /data \
-#        quay.io/coreos/coreos-installer:release download -s stable -p metal -f iso
-#   isoinfo -J -i /home/rmr/kubernetes/kubernetes-operator/ansible/okd/fedora-coreos-33.20210217.3.0-live.x86_64.iso -f
-    wget https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/${fcos_ver}/x86_64/fedora-coreos-${fcos_ver}-live.x86_64.iso -O ${IMAGE}
-  fi
-
+  [ ! -e $downloads/image.img ] && wget ${image_url} -O $downloads/image.img
+  [ ! -e $downloads/rootfs.img ] && wget ${rootfs_url} -O $downloads/rootfs.img
+  [ ! -e $downloads/kernel.img ] && wget ${kernel_url} -O $downloads/kernel.img
+  [ ! -e $downloads/initramfs.img ] && wget ${initramfs_url} -O $downloads/initramfs.img
+  [ ! -e $downloads/install.tar.gz ] && wget $ocp_install_url -O $downloads/install.tar.gz
+  [ ! -e $downloads/client.tar.gz ] && wget $ocp_client_url -O $downloads/client.tar.gz
   [ ! -e $BASE/bin ] && mkdir -p $BASE/bin
 
-  if [ ! -e ${INSTALLER} ] || [ ${INSTALLER} version | grep -q ${openshift_ver} ] ; then
-    wget https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-install-linux-${openshift_ver}.tar.gz
-    tar xvf openshift-install-linux-${openshift_ver}.tar.gz -C $BASE/bin/
-    chmod +x  ${INSTALLER}
-  fi
-
-  if [ ! -e ${OC} ] || [ ${OC} version | grep -q ${openshift_ver} ] ; then
-    wget https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-client-linux-${openshift_ver}.tar.gz
-    tar xvf openshift-client-linux-${openshift_ver}.tar.gz -C $BASE/bin/
-    chmod +x  ${OC}
-  fi
+  rm $BASE/bin/*
+  tar xvf $downloads/install.tar.gz -C $BASE/bin/
+  tar xvf $downloads/client.tar.gz -C $BASE/bin/
+  chmod +x  $BASE/bin/*
 
   if [ -e .openshift_install.log ] ; then
     rm .openshift_install*
@@ -153,7 +168,7 @@ EOF
   cp $BASE/../files/lb.fcc $BASE/lb.fcc
   $INSTALLER create manifests --dir=${install_dir}
   if [ "$WORKERS" = "0" ] ; then
-    sed -i 's/mastersSchedulable: false/mastersSchedulable: true/g' ${install_dir}/manifests/cluster-scheduler-02-config.yml
+    sed -i 's/mastersSchedulable: false/mastersSchedulable: false/g' ${install_dir}/manifests/cluster-scheduler-02-config.yml
     sed -i 's/worker1 worker1.openshift.local/master1 master1.openshift.local/g' $BASE/lb.fcc
     sed -i 's/worker2 worker2.openshift.local/master2 master2.openshift.local/g' $BASE/lb.fcc
     sed -i 's/worker3 worker3.openshift.local/master3 master3.openshift.local/g' $BASE/lb.fcc
@@ -168,6 +183,9 @@ EOF
   $INSTALLER create ignition-configs --dir=${install_dir}
 
   podman run --pull=always -i --rm quay.io/coreos/fcct -p -s <$BASE/lb.fcc > ${install_dir}/lb.ign
+
+  # The current version of fcct produces ignition 3.2.0 where RHCOS ignition can only handle 3.1.0
+  sed -i "s/\"version\": \"3.2.0\"/\"version\": \"3.1.0\"/g" ${install_dir}/lb.ign
 
   while $(virsh list --state-running | grep -q running); do
     virsh destroy $(virsh list --state-running --name | head -n1)
@@ -217,10 +235,11 @@ create_vm() {
           --noautoconsole \
           --noreboot \
           --disk=${disk} \
-          --install kernel=$BASE/kernel.img,initrd=$BASE/initramfs.img \
-          --extra-args "coreos.inst=yes console=ttyS0 coreos.inst.install_dev=/dev/sda coreos.live.rootfs_url=${rootfs_url} coreos.inst.ignition_url=${ignition_url}/${3} coreos.inst.image_url=${image_url}"
+          --install kernel=$downloads/kernel.img,initrd=$downloads/initramfs.img \
+          --extra-args "rd.neednet=1 coreos.inst.install_dev=/dev/sda coreos.inst=yes console=ttyS0 coreos.live.rootfs_url=http://${HOST_IP}:8080/rootfs.img coreos.inst.insecure coreos.inst.ignition_url=${ignition_url}/${3} coreos.inst.image_url=http://${HOST_IP}:8080/image.img"
 }
 
+setup_rhcos
 cleanup
 
 if [ $DESTROY = "yes" ] ; then
@@ -228,8 +247,8 @@ if [ $DESTROY = "yes" ] ; then
 fi
 
 start_fileserver
-create_vm "lb" "2048" "lb.ign"
-create_vm "bootstrap" "8196" "bootstrap.ign"
+create_vm "lb" "6000" "lb.ign"
+create_vm "bootstrap" "8000" "bootstrap.ign"
 
 for i in $(seq 1 $MASTERS) ; do
     create_vm "master$i" "${RAM_MB}" "master.ign"
@@ -241,7 +260,7 @@ done
 
 while [ ! -z "$(virsh list --state-running --name)" ] ; do
   echo "waiting"
-  sleep 20;
+  sleep 5;
 done
 
 virsh start "lb"
