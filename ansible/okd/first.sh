@@ -80,12 +80,8 @@ setup_fcos() {
   initramfs_url=${image_base}/fedora-coreos-${fcos_ver}-live-initramfs.x86_64.img
   kernel_url=${image_base}/fedora-coreos-${fcos_ver}-live-kernel-x86_64
   downloads=$BASE/downloads/openshift-v4/dependencies/fcos/${fcos_ver}
-
   ocp_install_url=https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-install-linux-${openshift_ver}.tar.gz
   ocp_client_url=https://github.com/openshift/okd/releases/download/${openshift_ver}/openshift-client-linux-${openshift_ver}.tar.gz
-  if [ ! -e $downloads ] ; then
-    mkdir -p $downloads
-  fi
 }
 
 setup_rhcos() {
@@ -99,10 +95,6 @@ setup_rhcos() {
   downloads=$BASE/downloads/openshift-v4/dependencies/rhcos/${rhcos_ver}/${rhcos_release_ver}
   ocp_client_url=https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.6.23/openshift-client-linux.tar.gz
   ocp_install_url=https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.6.23/openshift-install-linux.tar.gz
-
-  if [ ! -e $downloads ] ; then
-    mkdir -p $downloads
-  fi
 }
 
 start_fileserver() {
@@ -117,6 +109,10 @@ start_fileserver() {
 }
 
 cleanup() {
+
+  if [ ! -e $downloads ] ; then
+    mkdir -p $downloads
+  fi
 
   [ ! -e $downloads/image.img ] && wget ${image_url} -O $downloads/image.img
   [ ! -e $downloads/rootfs.img ] && wget ${rootfs_url} -O $downloads/rootfs.img
@@ -187,8 +183,8 @@ EOF
   # The current version of fcct produces ignition 3.2.0 where RHCOS ignition can only handle 3.1.0
   sed -i "s/\"version\": \"3.2.0\"/\"version\": \"3.1.0\"/g" ${install_dir}/lb.ign
 
-  while $(virsh list --state-running | grep -q running); do
-    virsh destroy $(virsh list --state-running --name | head -n1)
+  while $(virsh list --state-running --state-paused | grep -q -e running -e paused ); do
+    virsh destroy $(virsh list --state-running --state-paused --name | head -n1)
   done
 
   while [ ! -z "$(virsh list --all --name)" ] ; do
