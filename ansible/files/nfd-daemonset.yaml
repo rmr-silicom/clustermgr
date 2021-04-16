@@ -95,7 +95,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
-          image: docker.silicom.dk:5000/node-feature-discovery:latest
+          image: quay.io/ryan_raasch/node-feature-discovery:v0.6.0-351-g24625d3-minimal
           imagePullPolicy: Always
           name: nfd-master
           securityContext:
@@ -111,7 +111,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
-          image: docker.silicom.dk:5000/node-feature-discovery:latest
+          image: quay.io/ryan_raasch/node-feature-discovery:v0.6.0-351-g24625d3-minimal
           imagePullPolicy: Always
           name: nfd-worker
           securityContext:
