@@ -1,29 +1,29 @@
-== Use libvirt
+## Use libvirt
 
-== Fedora 32
+## Fedora 32
 
 Setup base image for all nodes including master.
 
-```
+`
 virt-builder fedora-32 --root-password password:123456 --update --selinux-relabel
 virt-customize -a fedora-32.img --run-command 'dnf update -y' --root-password password:123456
 virt-customize -a fedora-32.img --run-command 'dnf install podman -y' --root-password password:123456
 virt-customize -a fedora-32.img --run-command 'dnf install @container-tools -y' --root-password password:123456
 virt-customize -a fedora-32.img --run-command 'dnf install kubernetes -y' --root-password password:123456
-```
+`
 
 Clone VM template into 3 VMs, where there are 2 nodes and 1 master.
 
 virt-install --name f32vm1 --ram 2048 --disk path=fedora-32.img,format=raw --os-variant fedora28 --import --nographics
 
-== Fedora 33 (Base cloud images https://alt.fedoraproject.org/cloud/)
+## Fedora 33 (Base cloud images https://alt.fedoraproject.org/cloud/)
 virt-builder fedora-33 --root-password password:123456 --update --selinux-relabel
 virt-customize -a fedora-33.img --run-command 'dnf update -y' --root-password password:123456
 virt-customize -a fedora-33.img --run-command 'dnf install podman -y' --root-password password:123456
 virt-customize -a fedora-33.img --run-command 'dnf install @container-tools -y' --root-password password:123456
 virt-customize -a fedora-33.img --run-command 'dnf install kubernetes -y' --root-password password:123456
 
-== RHEL8 specific
+## RHEL8 specific
 
 RHEL8 image is not part of the libvirt repos. So we need to include the xz base image as a local file.
 
